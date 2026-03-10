@@ -1,41 +1,71 @@
-# sql-design-thinking
-初見データの構造理解とビジネス分析に向けた、SQL設計例と構造化思考のメモ集。  
-A collection of SQL design examples and notes on structured thinking for dataset understanding and business analysis.
+# SQL Design Patterns for Business Data Analysis
 
-## このリポジトリについて
+## 概要 / Overview
 
-本リポジトリでは、初見データを構造的に理解し、
-ビジネス分析へとつなげるためのSQL設計アプローチを整理しています。
+このリポジトリでは、ビジネスデータ分析において実際に使用される  
+SQL設計パターンや分析用データセット作成の考え方をまとめています。
 
----
+主に以下のテーマを中心に整理しています。
 
-## 1. 初見データを30分で理解するための視点
+・複雑なビジネスロジックを整理するSQL設計  
+・Window関数を活用したデータ計算  
+・データ粒度（Grain）を意識したデータモデリング  
+・初見データを短時間で理解するための思考プロセス  
 
-- データ粒度の確認
-- 主キー・ユニーク性の確認
-- NULL・異常値の確認
-- テーブル関係性の把握
-
----
-
-## 2. SQL設計パターン
-
-- CTEによる構造分解
-- 粒度統一の考え方
-- 集計前の前処理設計
+実務で使用していたSQLをベースにしていますが、  
+企業情報や機密情報を含まない形に抽象化して掲載しています。
 
 ---
 
-## 3. 異常検知アプローチ
+This repository contains SQL design patterns and structured query examples  
+for business data analysis.
 
-- 前年同月比による変動検知
-- Zスコアによる外れ値検出
-- 比率異常の検出
+The focus of this repository is:
+
+- SQL design for complex business logic
+- Window function based calculations
+- Data modeling with clear data grain
+- Structured thinking for understanding unfamiliar datasets
+
+All queries are abstracted versions of real-world SQL used in business environments,  
+with company-specific information removed.
 
 ---
 
-## 4. 設計思想メモ
+# SQL Design Philosophy
 
-- なぜそのCTE構造にしたのか
-- なぜその粒度に揃えたのか
-- パフォーマンスと可読性のバランス
+SQLを書く際には、以下の順序で設計することを重視しています。
+
+1. Business Purpose（何のためのデータか）
+2. Data Grain（1行が何を表すか）
+3. Primary Key（データの一意性）
+4. Table Relationships（テーブル関係）
+5. Calculation Logic（計算ロジック）
+6. Data Quality Checks（データ品質確認）
+
+このリポジトリでは、単なるSQLの書き方ではなく  
+**ビジネス分析のためのSQL設計**を整理しています。
+
+---
+
+When designing SQL, the following structure is used:
+
+1. Business Purpose
+2. Data Grain
+3. Primary Key
+4. Table Relationships
+5. Calculation Logic
+6. Data Quality Checks
+
+The goal is not just writing SQL, but designing queries  
+for reliable business data analysis.
+
+---
+
+# Repository Structure
+business_cases
+└ subscription
+  ├ README.md
+  └ subscription_point_allocation_logic.sql
+  
+Each directory contains a business case and the SQL used to solve it.
