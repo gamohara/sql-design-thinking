@@ -63,9 +63,10 @@ for reliable business data analysis.
 ---
 
 # Repository Structure
-business_cases
-└ subscription
-  ├ README.md
-  └ subscription_point_allocation_logic.sql
+```text
+business_cases/
+└── subscription/
+    ├── README.md
+    └── subscription_point_allocation_logic.sql
   
 Each directory contains a business case and the SQL used to solve it.
