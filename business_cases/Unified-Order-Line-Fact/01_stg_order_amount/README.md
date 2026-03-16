@@ -152,8 +152,10 @@ The primary objectives of this stage are:
 
 ### データ品質監視 / Data Quality Monitoring
 本クエリは単なるデータ変換ではなく、**「データ品質ゲート」**としての役割を果たします。error_detail が空でないレコードを監視・アラート通知することで、上流システムの不具合やマスタ登録漏れを早期に検知することが可能です。
+
 This query acts not just as a transformation step, but as a Data Quality Gate. By monitoring records where error_detail is not empty, data teams can proactively detect upstream system bugs or missing master data entries.
 
 ### 拡張性 / Extensibility
 新しい割引タイプ（例：期間限定キャンペーン等）が追加された場合でも、order_header CTE内の total_discount_incl_points の計算式を更新するだけで、明細への案分ロジックを変更することなく対応できる疎結合（Loosely Coupled）な設計になっています。
+
 The design is loosely coupled; if new discount types are introduced, updating the calculation in the order_header CTE is sufficient. The core proration logic remains untouched, ensuring high maintainability.
