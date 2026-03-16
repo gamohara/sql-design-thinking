@@ -138,7 +138,7 @@ The query is designed as part of the **Staging Layer** in the analytics pipeline
    │                                        ▼
    ├─▶ 03_stg_return_history.sql      [Intermediate]
    ├─▶ 04_int_cancellation_return ───────▶ 05_fct_all_purchases_unified
-
+```
 このステージでは以下を目的としています。
 The primary objectives of this stage are:
 
