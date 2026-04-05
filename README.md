@@ -15,6 +15,8 @@
 掲載しているSQLは、実務で使用していたロジックをベースに  
 企業情報や機密情報を除去した**抽象化サンプル**として公開しています。
 
+---
+
 This repository contains **SQL design patterns and data modeling techniques**  
 used in real-world business data analysis and data engineering.
 
@@ -58,6 +60,8 @@ with company-specific information removed.
 単なるSQLクエリではなく  
 **分析用データセットを設計するSQL**を重視しています。
 
+---
+
 When designing SQL, the following structured approach is used:
 
 1. Business Purpose  
@@ -95,18 +99,22 @@ These examples demonstrate SQL patterns used for:
 
 # Repository Structure
 ```text
-business_cases/
-
-subscription/
-├─ subscription_point_allocation_logic.sql
-└─ README.md
-unified_order_line_fact/
-├─ 01_stg_order_amount
-├─ 02_stg_order_info
-├─ 03_stg_return_archive (Coming Soon)
-├─ 04_int_cancellation_return_logic (Coming Soon)
-└─ 05_fct_all_purchases_unified (Coming Soon)
+📁 sql-design-thinking
+ ├── 📄 README.md
+ └── 📁 business_cases
+      └── 📁 subscription
+      │    └── subscription_point_allocation_logic.sql
+      └── 📁 unified_order_line_fact
+           ├── 📁 01_staging
+           │    ├── 01_stg_order_amount.sql
+           │    ├── 02_stg_order_info.sql
+           │    └── 03_stg_return_history.sql
+           ├── 📁 02_intermediate
+           │    └── 04_int_cancellation_return.sql
+           └── 📁 03_marts
+                └── 05_fct_all_purchases_unified.sql
 ```
+
 Each directory represents a **business data modeling case**.
 
 Typical structure:
