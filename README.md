@@ -105,14 +105,27 @@ These examples demonstrate SQL patterns used for:
       └── 📁 subscription
       │    └── subscription_point_allocation_logic.sql
       └── 📁 unified_order_line_fact
+      │    ├── 📁 01_staging
+      │    │    ├── 01_stg_order_amount.sql
+      │    │    ├── 02_stg_order_info.sql
+      │    │    └── 03_stg_return_history.sql
+      │    ├── 📁 02_intermediate
+      │    │    └── 04_int_cancellation_return.sql
+      │    └── 📁 03_marts
+      │         └── 05_fct_all_purchases_unified.sql
+      └── 📁 advanced_marketing_foundation
+           ├── 📄 README.md
+           │
            ├── 📁 01_staging
-           │    ├── 01_stg_order_amount.sql
-           │    ├── 02_stg_order_info.sql
-           │    └── 03_stg_return_history.sql
+           │    ├── 01_stg_no_real_ship_matching.sql
+           │    └── 03_stg_product_media_enrichment.sql
+           │
            ├── 📁 02_intermediate
-           │    └── 04_int_cancellation_return.sql
-           └── 📁 03_marts
-                └── 05_fct_all_purchases_unified.sql
+           │    ├── 02_int_no_real_ship_override.sql
+           │    └── 04_int_pure_new_classification.sql
+           │
+           └── 📁 03_audit
+                └── 05_audit_pure_new_logic.sql
 ```
 
 Each directory represents a **business data modeling case**.
