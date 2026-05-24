@@ -72,3 +72,17 @@ WITH sf_events AS (
 -- ここからクエリを記述してください / Write your query below
 SELECT * FROM sf_events;
 ```  
+
+---
+
+## 💡 ヒントと解法はこちら / Hint & Solution
+<details>
+<summary>✅ <b>ここをクリックして【解説】を表示 / Click to show Explanation</b></summary>  
+
+## 💡 解法アプローチ (Solutions)  
+この問題（Gaps and Islands）に対する、2つの異なるアプローチとSQL実装を提示します。ビジネス要件とパフォーマンス要件に応じて技術選定を行います。  
+
+| アプローチ | 手法 | 利点 (Pros) | 欠点 (Cons) | ファイル |
+| :--- | :--- | :--- | :--- | :--- |
+| **Approach 1** | **文字列パターンマッチング**<br>(String Pattern Matching) | 非常に直感的。「1日おきの連続」など**複雑な仕様変更に極めて強い。** | 配列/文字列操作関数を使用するため、計算コスト・メモリ消費が高い。 | [👉 SQLを見る](./approach_1_string_matching.sql) |
+| **Approach 2** | **行番号グループ化**<br>(ROW_NUMBER Grouping) | 数値計算のみで完結するため、**ビッグデータ環境でも高速に動作する王道の手法。** | ロジックが数学的で直感的ではなく、飛び石連休などの仕様変更に弱い。 | [👉 SQLを見る](./approach_2_row_number.sql) |  
