@@ -104,6 +104,8 @@ These examples demonstrate SQL patterns used for:
  └── 📁 business_cases
  │    └── 📁 subscription
  │    │
+ │    └── 📁 customer_entity_resolution_mdm
+ │    │
  │    └── 📁 unified_order_line_fact
  │    │
  │    └── 📁 advanced_marketing_foundation
