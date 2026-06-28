@@ -7,27 +7,34 @@
 
 【業務ロジック / Business Logic】
 ----------------------------------------------------------------------------------------------
-  1. データ欠損の修復 (Data Restoration)
+  1. データ欠損の多段フォールバック修復 (Multi-Tier Data Restoration)
      前工程（stg_no_real_ship_matching）で特定したペア情報を用い、旧システム（Legacy）起因で
      「返品時に欠損した（0円になった）金額や数量」に対して、対となるダミー出荷が持つ
      正しい実績値をウィンドウ関数（Window Functions）で安全に伝播・上書き（Override）します。
+     さらに、旧システム起因の「返品時に欠損した（0円になった）金額や数量」に対し、ダミー出荷の実績値を上書きします。
+     ★【重要】元注文とダミー注文間で「商品の分裂・合算・ID変更」が発生した場合に備え、以下の3段構えのルートで修復します。
+       ① 通常ルート: 商品ID＋枝番 が完全一致する場合 (1-to-1 Exact Match)
+       ② 分裂ルート: ダミー側で明細が分裂した場合、カテゴリ単位で合算した値を適用 (Category-Level Rollup)
+       ③ ID違いルート: 明細数は同じだが商品IDが変わった場合、カテゴリ内の連番でお見合い適用 (Category-Sequential Match)
   2. ステータスの継承 (Status Inheritance)
      形式的返品レコードに対し、対になるダミー出荷の最終ステータス（本当に返品されたか等）
      を継承させ、ビジネス実態に基づいた正しい「返品フラグ」を再構築します。
+     ★【追加】ダミー側が単品で登録された場合でも、元注文の「定期属性（is_subsc）」を復元・継承します。
   3. フェイルセーフ除外 (Fail-safe Exclusion)
      役割を終えたダミー出荷レコードを売上二重計上防止のために除外します。ただし、
-     紐付けエラーとなったダミー出荷は売上消失防止のためあえて残す安全制御を行います。
+     紐付けエラーとなったダミー出荷は売上消失防止のため、あえて残す安全制御を行います。
 
-  1. Data Restoration
-     Using pair information from the previous matching stage, missing financial and quantity data 
-     in legacy return records are safely overridden by propagating the correct actual values 
-     from the paired dummy shipments via Window Functions.
+  1. Multi-Tier Data Restoration
+     Safely restores missing financial/quantity data in legacy returns by propagating actual values 
+     from paired dummy shipments. Implements a 3-tier fallback architecture (Exact Match, 
+     Category Rollup, and Category-Sequential Match) to handle extreme edge cases where items 
+     are split, merged, or substituted across original and dummy orders.
   2. Status Inheritance
-     Formal return records inherit the final status of their paired dummy shipments, 
-     reconstructing accurate "Return Flags" based on actual business outcomes.
+     Formal returns inherit the final business status (e.g., payment received, actual return) 
+     from their paired dummy shipments. Added logic also rescues missing subscription attributes.
   3. Fail-safe Exclusion
-     Matched dummy shipment records are excluded to prevent double-counting revenue. 
-     However, unmatched dummy shipments are intentionally retained as a fail-safe to prevent revenue loss.
+     Matched dummy shipments are excluded to prevent double-counting, while unmatched ones 
+     are intentionally retained as a fail-safe against revenue loss.
 
 【CTE構造 / CTE Structure】
 ----------------------------------------------------------------------------------------------
@@ -35,7 +42,7 @@
 This query consists of the following processing layers.
 
   1. base_order_table
-     元データの取得（実発送なし対応前のベースデータ）
+     元データの取得と、修復用の各種キー（お見合い用連番、明細数など）を準備
      Retrieval of base order data prior to dummy shipment processing.
 
   2. dummy_pairs_info
@@ -47,11 +54,11 @@ This query consists of the following processing layers.
      Vertical expansion of pair information to create a common join key.
 
   4. window_values
-     ウィンドウ関数を用いたダミー出荷実績値のグループ内伝播
+     ダミー側の値をグループ内に伝播。通常/分裂/ID違いの各ルート用集計値を生成
      Propagation of dummy shipment actuals within the matched group via Window Functions.
 
   5. override_base_data
-     旧形式データの欠損修復（金額・数量等のオーバーライド）
+     状態（一致・分裂）に応じた最適なルートの値をフォールバックで選択し上書き
      Restoration of missing legacy data through value overriding.
 
   6. Final Output
@@ -89,8 +96,14 @@ base_order_table AS (
         LEFT(order_id, 1) AS order_id_prefix,
         line_no, 
         
-        -- Generate internal matching key (row number by product)
+        -- ① 通常ルート用キー: 商品IDと枝番の順序
         ROW_NUMBER() OVER(PARTITION BY order_id ORDER BY product_id ASC, line_no ASC) AS line_no_pairs,
+        
+        -- ② ID違いルート用キー: カテゴリ単位の連番（お見合い用）
+        ROW_NUMBER() OVER(PARTITION BY order_id, product_analysis_category_level_5 ORDER BY line_no ASC) AS cate_line_no_pairs,
+        
+        -- ③ 分裂ルート用キー: 注文内のコア商品（RG/TR）明細数
+        SUM(CASE WHEN product_external_id4 IN ('RG', 'TR') THEN 1 ELSE 0 END) OVER(PARTITION BY order_id) AS order_count,
         
         product_id, 
         product_name, 
@@ -102,6 +115,7 @@ base_order_table AS (
         order_status,
         order_status_numbr, 
         payment_method,
+        is_payment_received,
         member_rank_at_order,
         latest_ad_code, 
         operator_code,
@@ -170,19 +184,54 @@ dummy_pairs_expanded AS (
 ),
 
 ----------------------------------------------------------------------
--- 4. [Value Propagation] ウィンドウ関数を用いたダミー情報のグループ内伝播
+-- 4. [Value Propagation] ウィンドウ関数を用いた多段修復値の生成・伝播
 --    Data Grain: order_id, line_no
 ----------------------------------------------------------------------
 window_values AS (
     SELECT
         *,
-        -- Propagate values from Dummy to Return within the same group
         MAX(CASE WHEN is_no_real_ship = 1 THEN payment_method END) OVER(PARTITION BY group_order_id) AS max_payment_method,
-        MAX(CASE WHEN is_no_real_ship = 1 THEN subsc_id END) OVER(PARTITION BY group_order_id) AS max_subsc_id,
+        MAX(CASE WHEN is_no_real_ship = 1 THEN is_payment_received END) OVER(PARTITION BY group_order_id) AS max_is_payment_received,
+        
+        -- ★定期フラグの救済（完全一致ベース）
+        CASE
+            WHEN COALESCE(MAX(CASE WHEN is_no_real_ship = 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id), 0) <> 1
+             AND MAX(CASE WHEN is_no_real_ship <> 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id) = 1 THEN 1
+            ELSE COALESCE(MAX(CASE WHEN is_no_real_ship = 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id), 0)
+        END AS max_is_subsc,
+        
+        -- ★定期フラグの救済（カテゴリ一致ベース：ID違い用）
+        CASE
+            WHEN COALESCE(MAX(CASE WHEN is_no_real_ship = 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5), 0) <> 1
+             AND MAX(CASE WHEN is_no_real_ship <> 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5) = 1 THEN 1
+            ELSE COALESCE(MAX(CASE WHEN is_no_real_ship = 1 THEN is_subsc END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5), 0)
+        END AS max_is_subsc_cate,
+        
+        -- ★定期IDの救済：ダミー側(=1)がNULLなら、元出荷(<>1)側の値を伝播
+        COALESCE(
+            NULLIF(MAX(CASE WHEN is_no_real_ship = 1 THEN subsc_id END) OVER(PARTITION BY group_order_id), ''), 
+            MAX(CASE WHEN is_no_real_ship <> 1 THEN subsc_id END) OVER(PARTITION BY group_order_id)
+        ) AS max_subsc_id,
+        
+        -- Route ①: 通常ルート用の伝播値 (Exact Match)
         MAX(CASE WHEN is_no_real_ship = 1 THEN quantity END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id) AS max_quantity,
         MAX(CASE WHEN is_no_real_ship = 1 THEN total_payment_amount END) OVER(PARTITION BY group_order_id) AS max_total_payment_amount,
         MAX(CASE WHEN is_no_real_ship = 1 THEN discounted_amount_excl_point_excl_tax END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id) AS max_discounted_amount_excl_point_excl_tax,
-        MAX(CASE WHEN is_no_real_ship = 1 THEN validated_discounted_incl_point_excl_tax END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id) AS max_validated_discounted_incl_point_excl_tax
+        MAX(CASE WHEN is_no_real_ship = 1 THEN validated_discounted_incl_point_excl_tax END) OVER(PARTITION BY group_order_id, line_no_pairs, product_id) AS max_validated_discounted_incl_point_excl_tax,
+        
+        -- Route ②: 分裂ルート用の伝播値 (Category Rollup)
+        SUM(CASE WHEN is_no_real_ship = 1 THEN quantity END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5) AS sum_quantity_cate,
+        SUM(CASE WHEN is_no_real_ship = 1 THEN discounted_amount_excl_point_excl_tax END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5) AS sum_discounted_amount_excl_point_excl_tax_cate,
+        SUM(CASE WHEN is_no_real_ship = 1 THEN validated_discounted_incl_point_excl_tax END) OVER(PARTITION BY group_order_id, product_analysis_category_level_5) AS sum_validated_discounted_incl_point_excl_tax_cate,
+        
+        -- Route ③: ID違いルート用の伝播値 (Category-Sequential Match)
+        MAX(CASE WHEN is_no_real_ship = 1 THEN quantity END) OVER(PARTITION BY group_order_id, cate_line_no_pairs, product_analysis_category_level_5) AS match_quantity_cate,
+        MAX(CASE WHEN is_no_real_ship = 1 THEN discounted_amount_excl_point_excl_tax END) OVER(PARTITION BY group_order_id, cate_line_no_pairs, product_analysis_category_level_5) AS match_discounted_amount_excl_point_excl_tax_cate,
+        MAX(CASE WHEN is_no_real_ship = 1 THEN validated_discounted_incl_point_excl_tax END) OVER(PARTITION BY group_order_id, cate_line_no_pairs, product_analysis_category_level_5) AS match_validated_discounted_incl_point_excl_tax_cate,
+        
+        -- 分裂判定フラグ
+        CASE WHEN MAX(order_count_base) OVER(PARTITION BY group_order_id) = MAX(order_count_pair) OVER(PARTITION BY group_order_id) THEN 1 ELSE 0 END AS is_order_count_same,
+        CASE WHEN MAX(order_count_base) OVER(PARTITION BY group_order_id) < MAX(order_count_pair) OVER(PARTITION BY group_order_id) THEN 1 ELSE 0 END AS is_order_count_mismatch
 
     FROM (
         SELECT
@@ -191,6 +240,8 @@ window_values AS (
             COALESCE(pair.fake_return_order_id, base.order_id) AS group_order_id, 
             pair.match_strength,
             COALESCE(pair.is_match, 0) AS is_match,
+            CASE WHEN base.order_id = pair.fake_return_order_id THEN order_count ELSE 0 END AS order_count_base,
+            CASE WHEN base.order_id <> pair.fake_return_order_id THEN order_count ELSE 0 END AS order_count_pair,
             COALESCE(pair.is_biz_return, 0) AS pair_biz_return,
             COALESCE(pair.is_sys_return, 0) AS pair_sys_return,
             pair.return_completed_date AS pair_return_completed_date,
@@ -203,7 +254,7 @@ window_values AS (
 ),
 
 ----------------------------------------------------------------------
--- 5. [Data Override] 旧形式データの修復（オーバーライド）
+-- 5. [Data Override] レガシー形式データの修復（フォールバック選択）
 --    Data Grain: order_id, line_no
 ----------------------------------------------------------------------
 override_base_data AS (
@@ -216,15 +267,40 @@ override_base_data AS (
             THEN max_payment_method 
             ELSE payment_method 
         END AS payment_method_override,
-
+        CASE WHEN is_match = 1 THEN max_is_payment_received ELSE is_payment_received END AS is_payment_received_override,
+        
+        -- 定期フラグ補正 (ID違いも考慮した二段構え)
+        CASE 
+            WHEN is_match = 1 AND max_is_subsc <> 1 AND max_is_subsc_cate = 1 AND product_external_id4 = 'RG' THEN max_is_subsc_cate
+            WHEN is_match = 1 THEN max_is_subsc
+            ELSE is_subsc 
+        END AS is_subsc_override,
         CASE WHEN is_match = 1 THEN max_subsc_id ELSE subsc_id END AS subsc_id_override,
 
         -- Quantity & Financial Overrides 
         -- 一般化対応: プレフィックス 'L' (Legacy) に変更
-        CASE WHEN is_match = 1 AND order_id_prefix = 'L' AND match_strength IN ('INCLUSIVE','GENERIC') THEN max_quantity ELSE quantity END AS quantity_override,
-        CASE WHEN is_match = 1 AND order_id_prefix = 'L' AND match_strength IN ('INCLUSIVE','GENERIC') THEN max_total_payment_amount ELSE total_payment_amount END AS total_payment_amount_override,
-        CASE WHEN is_match = 1 AND order_id_prefix = 'L' AND match_strength IN ('INCLUSIVE','GENERIC') THEN max_discounted_amount_excl_point_excl_tax ELSE discounted_amount_excl_point_excl_tax END AS discounted_amount_excl_point_excl_tax_override,
-        CASE WHEN is_match = 1 AND order_id_prefix = 'L' AND match_strength IN ('INCLUSIVE','GENERIC') THEN max_validated_discounted_incl_point_excl_tax ELSE validated_discounted_incl_point_excl_tax END AS validated_discounted_incl_point_excl_tax_override
+        CASE 
+            WHEN is_match = 1 AND order_id_prefix = 'LEGACY_SYSTEM_PREFIX' AND match_strength IN ('INCLUSIVE','GENERIC') AND max_quantity IS NOT NULL THEN max_quantity
+            WHEN is_match = 1 AND max_quantity IS NULL AND is_order_count_mismatch = 1 THEN sum_quantity_cate
+            WHEN is_match = 1 AND max_quantity IS NULL AND is_order_count_same = 1 THEN match_quantity_cate
+            ELSE quantity 
+        END AS quantity_override,
+        
+        CASE WHEN is_match = 1 AND order_id_prefix = 'LEGACY_SYSTEM_PREFIX' AND match_strength IN ('INCLUSIVE','GENERIC') THEN max_total_payment_amount ELSE total_payment_amount END AS total_payment_amount_override,
+        
+        CASE 
+            WHEN is_match = 1 AND order_id_prefix = 'LEGACY_SYSTEM_PREFIX' AND match_strength IN ('INCLUSIVE','GENERIC') AND max_discounted_amount_excl_point_excl_tax IS NOT NULL THEN max_discounted_amount_excl_point_excl_tax
+            WHEN is_match = 1 AND max_discounted_amount_excl_point_excl_tax IS NULL AND is_order_count_mismatch = 1 THEN sum_discounted_amount_excl_point_excl_tax_cate
+            WHEN is_match = 1 AND max_discounted_amount_excl_point_excl_tax IS NULL AND is_order_count_same = 1 THEN match_discounted_amount_excl_point_excl_tax_cate
+            ELSE discounted_amount_excl_point_excl_tax 
+        END AS discounted_amount_excl_point_excl_tax_override,
+        
+        CASE 
+            WHEN is_match = 1 AND order_id_prefix = 'LEGACY_SYSTEM_PREFIX' AND match_strength IN ('INCLUSIVE','GENERIC') AND max_validated_discounted_incl_point_excl_tax IS NOT NULL THEN max_validated_discounted_incl_point_excl_tax
+            WHEN is_match = 1 AND max_validated_discounted_incl_point_excl_tax IS NULL AND is_order_count_mismatch = 1 THEN sum_validated_discounted_incl_point_excl_tax_cate
+            WHEN is_match = 1 AND max_validated_discounted_incl_point_excl_tax IS NULL AND is_order_count_same = 1 THEN match_validated_discounted_incl_point_excl_tax_cate
+            ELSE validated_discounted_incl_point_excl_tax 
+        END AS validated_discounted_incl_point_excl_tax_override
 
     FROM
         window_values
