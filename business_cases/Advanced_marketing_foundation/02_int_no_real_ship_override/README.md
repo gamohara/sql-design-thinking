@@ -27,7 +27,7 @@ In legacy systems, executing a return often resets item quantities and amounts t
 ## 解決策 / Solution
 
 **【ウィンドウ関数による値の伝播 (Value Propagation via Window Functions)】**
-ダミー出荷と返品のペアを1つのグループ（Partition）として括り、`MAX() OVER(PARTITION BY group_order_id)` を用いてダミー側が保持している「正しい数量・金額・支払方法」をグループ内の欠損レコードに伝播（Propagation）させ、上書き（Override）します。これによりJOIN爆発のリスクをゼロに抑えた安全な修復を実現しています。
+ダミー出荷と返品のペアを1つのグループ（Partition）として括り、`MAX() OVER(PARTITION BY group_order_id)` を用いてダミー側が保持している「正しい数量・金額・支払方法・入金済フラグ」をグループ内の欠損レコードに伝播（Propagation）させ、上書き（Override）します。これによりJOIN爆発のリスクをゼロに抑えた安全な修復を実現しています。
 
 **【3段構えのフォールバック・アーキテクチャ (3-Tier Fallback Restoration)】**
 どのようなイレギュラーデータでも確実に修復できるよう、ウィンドウ関数を活用して以下の3つの修復ルートを実装しました。
