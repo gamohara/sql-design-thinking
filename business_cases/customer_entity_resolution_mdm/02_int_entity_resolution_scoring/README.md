@@ -95,6 +95,16 @@ Duplicate accounts degrade LTV analysis accuracy and increase operational costs/
                                 [Master Data Management] ──▶ Analytics Fact Tables
 ```  
 
+本ケースで生成される名寄せ済み顧客マスタは、[Unified-Order-Line-Fact](../../Unified-Order-Line-Fact/) の  
+`04_int_cancellation_return`（`dim_customers` によるブラックリスト判定）、および  
+[Advanced_marketing_foundation](../../Advanced_marketing_foundation/) の「顧客統合に耐えうる純新規判定」の土台として利用される想定です。
+
+The merged customer master produced by this case is intended to be used as the `dim_customers`  
+input for blacklist checks in `04_int_cancellation_return` of [Unified-Order-Line-Fact](../../Unified-Order-Line-Fact/),  
+and as the foundation for merge-resilient "Pure-New" classification in [Advanced_marketing_foundation](../../Advanced_marketing_foundation/).
+
+リポジトリ全体のアーキテクチャは [トップレベルREADME](../../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
+
 ---
 
 # 運用と保守 / Operations & Maintenance  

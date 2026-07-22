@@ -28,6 +28,18 @@ This example demonstrates SQL design patterns and structured thinking for unders
 
 ---
 
+## データパイプライン内の位置 / Architecture Position
+
+本ケースの出力は、[Unified-Order-Line-Fact](../Unified-Order-Line-Fact/) の `02_stg_order_info` における  
+定期購入情報（`dim_subscription_info`）として参照される想定です。
+
+The output of this case is intended to be referenced as the subscription dimension  
+(`dim_subscription_info`) in `02_stg_order_info` of [Unified-Order-Line-Fact](../Unified-Order-Line-Fact/).
+
+リポジトリ全体のアーキテクチャは [トップレベルREADME](../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
+
+---
+
 ## SQL Design Pattern
 
 ### 定期購入における累計配分ロジック  
