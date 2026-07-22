@@ -10,6 +10,22 @@ This project is a data pipeline that fully integrates e-commerce order data—en
 
 ---
 
+## リポジトリ全体における位置づけ / Position in the Overall Architecture
+
+本ケースは単独でも成立しますが、リポジトリ全体では以下の**上流・下流ケース**と接続する前提で設計されています。
+
+- **Upstream**: [subscription](../../subscription/)（定期購入情報 → `dim_subscription_info`）、[customer_entity_resolution_mdm](../../customer_entity_resolution_mdm/)（名寄せ済み顧客マスタ → `dim_customers`）
+- **Downstream**: [Advanced_marketing_foundation](../../Advanced_marketing_foundation/)（本ケースの出力 `fct_all_purchases_unified` を `stg_all_purchases_base` として利用）
+
+While this case is self-contained, it is designed to connect with the following **upstream / downstream cases** in the repository:
+
+- **Upstream**: [subscription](../../subscription/) (subscription info → `dim_subscription_info`), [customer_entity_resolution_mdm](../../customer_entity_resolution_mdm/) (merged customer master → `dim_customers`)
+- **Downstream**: [Advanced_marketing_foundation](../../Advanced_marketing_foundation/) (consumes this case's output `fct_all_purchases_unified` as `stg_all_purchases_base`)
+
+リポジトリ全体のアーキテクチャは [トップレベルREADME](../../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
+
+---
+
 ## パイプライン・アーキテクチャ / Pipeline Architecture
 
 本パイプラインは、実行順序（01〜05）とアーキテクチャレイヤー（Staging, Intermediate, Marts）によってモジュール化されており、各クエリが単一の責任（Single Responsibility）を持っています。

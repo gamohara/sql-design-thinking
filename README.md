@@ -97,6 +97,41 @@ These examples demonstrate SQL patterns used for:
 
 ---
 
+# Overall Architecture / 全体アーキテクチャ
+
+`business_cases` 配下の4つのケースは、それぞれ独立したサンプルであると同時に、  
+実際には**1つの大きなデータ基盤（受注データ統合 → マーケティングKPI基盤）を構成するモジュール群**として設計されています。
+
+The four cases under `business_cases` can be read independently, but they are also designed as  
+**modules of a single, larger data platform** (order data integration → marketing KPI foundation).
+
+```mermaid
+graph TD
+    subsc[("📁 subscription<br/>定期購入 次回配送金額・ポイント配分")]:::case
+    mdm[("📁 customer_entity_resolution_mdm<br/>顧客名寄せ・重複検知")]:::case
+
+    subsc -->|dim_subscription_info| uolf
+    mdm -->|dim_customers| uolf
+
+    uolf["📁 Unified-Order-Line-Fact<br/>受注・返品・キャンセルの統合ファクト"]:::case
+    uolf -->|"fct_all_purchases_unified ≒ stg_all_purchases_base"| amf
+
+    mdm -->|merged customer master| amf
+
+    amf["📁 Advanced_marketing_foundation<br/>純新規判定・マーケティングKPI基盤"]:::case
+
+    classDef case fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+```
+
+- **subscription**: 定期購入の金額・ポイント配分ロジック → `Unified-Order-Line-Fact` の定期情報として参照
+- **customer_entity_resolution_mdm**: 顧客の名寄せ・重複検知 → `Unified-Order-Line-Fact` のブラックリスト判定、および `Advanced_marketing_foundation` の顧客統合に耐えうる純新規判定の土台
+- **Unified-Order-Line-Fact**: 受注明細単位での金額・ステータスの統合ファクトテーブル構築（出力が次工程の入力になる）
+- **Advanced_marketing_foundation**: 上記すべてを土台に、マーケティングKPI（純新規・LTV等）を算出する最終レイヤー
+
+各ケースのREADMEには、この全体像における位置づけ（Upstream / Downstream）を明記しています。
+
+---
+
 # Repository Structure
 ```text
 📁 sql-design-thinking
