@@ -11,8 +11,10 @@
      注文構成の同一性を評価するため、商品ID、カテゴリ、数量の配列を
      LISTAGGを用いて文字列化し、段階的な比較用フィンガープリントを生成。
   2. 多段階ゲート・マッチング
-     厳格な条件から緩やかな条件まで、6段階（STRICT, FLEXIBLE, RELAXED, INCLUSIVE, GENERIC, POTENTIAL）
-     の関門を設け、段階的にペア候補を特定しスコアリング。
+     厳格な条件から緩やかな条件まで、7段階（STRICT, FLEXIBLE, RELAXED, EQUIVALENT,
+     INCLUSIVE, GENERIC, POTENTIAL）の関門を設け、段階的にペア候補を特定しスコアリング。
+     商品IDや金額が異なっても「ビジネス上は同じ（代替品が出荷された）」と見なせるケースを
+     救済するEQUIVALENTゲートは、誤結合ノイズを防ぐため専用の隔離プールで判定する。
   3. カスケード型貪欲法による競合解消
      同じ返品IDを複数のダミー出荷が取り合う「N対MのJOIN爆発」を防ぐため、
      スコアと時系列に基づく優先順位（Rank）を付与。上位ランクで確定した
@@ -22,17 +24,20 @@
      パイプラインの健康状態を監視するためのSLI（Service Level Indicator）として出力。
 
   1. Fingerprint Generation
-     Serializing arrays of Product IDs, categories, and quantities using LISTAGG 
+     Serializing arrays of Product IDs, categories, and quantities using LISTAGG
      to generate multi-level fingerprints for order composition comparison.
   2. Multi-Gate Matching Evaluation
-     Identifying and scoring pair candidates through 6 progressive gates 
-     (STRICT to POTENTIAL) ranging from exact matches to heuristic estimations.
+     Identifying and scoring pair candidates through 7 progressive gates
+     (STRICT, FLEXIBLE, RELAXED, EQUIVALENT, INCLUSIVE, GENERIC, POTENTIAL) ranging from
+     exact matches to heuristic estimations. The EQUIVALENT gate rescues cases where a
+     substitute product was shipped instead of the original, using an isolated data pool
+     to prevent false-positive noise from contaminating the primary matching pools.
   3. Cascade Greedy Conflict Resolution
      Preventing N-to-M JOIN explosions by ranking candidates via scores and timestamps.
      Implementing a greedy algorithm via successive Anti-Joins to exclude already-matched IDs,
      ensuring strict 1-to-1 bidirectional uniqueness.
   4. Data Observability
-     Calculating the percentage distribution of match strengths and UNMATCHED ratios 
+     Calculating the percentage distribution of match strengths and UNMATCHED ratios
      as Service Level Indicators (SLIs) to monitor pipeline health.
 
 【CTE構造 / CTE Structure】
@@ -44,19 +49,23 @@ This query consists of the following processing layers.
      マッチング用基礎データの集計とフィンガープリント生成
      Aggregation and fingerprint generation for dummy shipments and formal returns.
 
-  2. find_dummy_pairs_gate_1 ~ 6
-     第1〜6関門の条件に基づくペア候補の抽出
-     Extraction of pair candidates based on 6 progressive gate conditions.
+  2. dummy_table_with_substitute / return_table_with_substitute
+     EQUIVALENTゲート専用の隔離プール作成（代替品を含めたフィンガープリント生成）
+     Isolated pool creation for the EQUIVALENT gate, including substitute products.
 
-  3. find_dummy_pairs_gate_union & evaluate_conflict_rank
+  3. find_dummy_pairs_gate_1 ~ 7
+     第1〜7関門の条件に基づくペア候補の抽出
+     Extraction of pair candidates based on 7 progressive gate conditions.
+
+  4. find_dummy_pairs_gate_union & evaluate_conflict_rank
      全候補の統合およびユーザー内での優先順位（Rank）付け
      Union of all candidates and calculation of conflict ranks per user.
 
-  4. resolve_rank_X_pairs
+  5. resolve_rank_X_pairs
      カスケード型の自己除外結合（Anti-Join）を用いた敗者復活戦（Rank 1 ~ 3）
      Cascade greedy resolution using anti-joins to establish 1-to-1 unique pairs.
 
-  5. Final Output
+  6. Final Output
      最終的な紐付け結果の出力およびモニタリング指標（SLI）の算出
      Final output of matched pairs alongside matching accuracy SLIs.
 
@@ -80,7 +89,7 @@ This query consists of the following processing layers.
 ==============================================================================================
 */
 
-WITH 
+WITH
 ----------------------------------------------------------------------
 -- 1. [Dummy Base] ダミーテーブルの構成ハッシュ化
 --    Data Grain: order_id
@@ -91,16 +100,16 @@ base_order_dummy_table AS (
         order_id,
         order_id_prefix,
         MAX(shipment_date)  AS ship_date,
-        
+
         -- Fingerprints (LISTAGG for Exact Matching)
         LISTAGG(product_id || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_id) AS fp_product_qty,
         LISTAGG(product_cate_lvl_5 || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_cate_lvl_5 ASC, quantity ASC) AS fp_cate_qty,
         LISTAGG(DISTINCT product_id, '|') WITHIN GROUP (ORDER BY product_id) AS fp_product_only,
         LISTAGG(DISTINCT product_cate_lvl_5, '|') WITHIN GROUP (ORDER BY product_cate_lvl_5) AS fp_cate_only,
-        
-        SUM(quantity)              AS rg_quantity, 
+
+        SUM(quantity)              AS rg_quantity,
         MAX(total_payment_amount)  AS total_payment_amount,
-        
+
         MAX(is_biz_cnsl)           AS is_biz_cnsl,
         MAX(is_biz_return)         AS is_biz_return,
         MAX(is_sys_cnsl)           AS is_sys_cnsl,
@@ -110,26 +119,26 @@ base_order_dummy_table AS (
 
     FROM (
         SELECT
-            user_id, 
-            order_id, 
+            user_id,
+            order_id,
             LEFT(order_id, 1) AS order_id_prefix,
             product_id,
             MAX(product_analysis_category_level_5) AS product_cate_lvl_5,
             MAX(scheduled_ship_date)  AS shipment_date,
-            SUM(quantity)             AS quantity, 
-            MAX(total_payment_amount) AS total_payment_amount, 
+            SUM(quantity)             AS quantity,
+            MAX(total_payment_amount) AS total_payment_amount,
             MAX(is_biz_cnsl)          AS is_biz_cnsl,
             MAX(is_biz_return)        AS is_biz_return,
             MAX(is_sys_cnsl)          AS is_sys_cnsl,
             MAX(is_sys_return)        AS is_sys_return,
             MAX(return_completed_at)  AS return_completed_date,
             MAX(return_reason_note)   AS return_reason_note
-        FROM 
+        FROM
             raw_no_real_ship_data -- 【元データ】ダミー出荷データ
-        WHERE 
+        WHERE
             product_external_id4 = 'RG'
         GROUP BY
-            1, 2, 4 
+            1, 2, 4
     )
     -- Exclude system returns/cancellations to reduce noise
     WHERE NOT (is_sys_cnsl = 1 OR is_sys_return = 1)
@@ -143,19 +152,19 @@ base_order_dummy_table AS (
 ----------------------------------------------------------------------
 base_order_return_table AS (
     SELECT
-        user_id, 
-        order_id, 
+        user_id,
+        order_id,
         MAX(shipment_date)  AS ship_date,
-        
+
         -- Fingerprints
         LISTAGG(product_id || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_id) AS fp_product_qty,
         LISTAGG(product_cate_lvl_5 || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_cate_lvl_5 ASC, quantity ASC) AS fp_cate_qty,
         LISTAGG(DISTINCT product_id, '|') WITHIN GROUP (ORDER BY product_id) AS fp_product_only,
         LISTAGG(DISTINCT product_cate_lvl_5, '|') WITHIN GROUP (ORDER BY product_cate_lvl_5) AS fp_cate_only,
-        
+
         SUM(quantity)              AS rg_quantity,
         MAX(total_payment_amount)  AS total_payment_amount,
-        
+
         MAX(is_biz_cnsl)    AS is_biz_cnsl,
         MAX(is_biz_return)  AS is_biz_return,
         MAX(is_sys_cnsl)    AS is_sys_cnsl,
@@ -163,33 +172,110 @@ base_order_return_table AS (
 
     FROM (
         SELECT
-            user_id, 
-            order_id, 
-            product_id, 
+            user_id,
+            order_id,
+            product_id,
             MAX(product_analysis_category_level_5) AS product_cate_lvl_5,
             MAX(scheduled_ship_date)  AS shipment_date,
-            SUM(quantity)             AS quantity, 
-            MAX(total_payment_amount) AS total_payment_amount, 
+            SUM(quantity)             AS quantity,
+            MAX(total_payment_amount) AS total_payment_amount,
             MAX(is_biz_cnsl)          AS is_biz_cnsl,
             MAX(is_biz_return)        AS is_biz_return,
             MAX(is_sys_cnsl)          AS is_sys_cnsl,
             MAX(is_sys_return)        AS is_sys_return
-        FROM 
+        FROM
             stg_all_purchases_base -- 【前工程】05_fct_all_purchases_unified
-        WHERE 
-            product_external_id4 = 'RG'   
-            AND is_sys_cnsl <> 1             
-            AND is_sys_return = 1              
-            AND is_dummy_shipment <> 1  
+        WHERE
+            product_external_id4 = 'RG'
+            AND is_sys_cnsl <> 1
+            AND is_sys_return = 1
+            AND is_dummy_shipment <> 1
         GROUP BY
-            1, 2, 3 
+            1, 2, 3
     )
     GROUP BY
         user_id, order_id
 ),
 
 ----------------------------------------------------------------------
--- 3~8. [Matching Gates] 第1〜6関門のマッチング処理
+-- 3. [Substitute Pool: Dummy] EQUIVALENTゲート専用の隔離プール（ダミー側）
+--    ★重要: 通常ゲートのノイズを防ぐため、代替品(TR/プレゼント品等)を
+--    含めたフィンガープリントのみをこの専用プールで生成する。
+--    Data Grain: order_id
+----------------------------------------------------------------------
+dummy_table_with_substitute AS (
+    SELECT
+        user_id,
+        order_id,
+        MAX(shipment_date)  AS ship_date,
+        LISTAGG(product_cate_lvl_5 || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_cate_lvl_5 ASC, quantity ASC) AS fp_cate_qty
+
+    FROM (
+        SELECT
+            ma.user_id,
+            ma.order_id,
+            ma.product_id,
+            MAX(ma.product_analysis_category_level_5) AS product_cate_lvl_5,
+            MAX(ma.scheduled_ship_date)  AS shipment_date,
+            SUM(ma.quantity)             AS quantity,
+            MAX(ma.total_payment_amount) AS total_payment_amount,
+            MAX(ma.is_sys_cnsl)          AS is_sys_cnsl,
+            MAX(ma.is_sys_return)        AS is_sys_return
+        FROM
+            raw_no_real_ship_data ma        -- 【元データ】ダミー出荷データ
+        LEFT JOIN
+            dim_rg_substitute_products su   -- 【商品マスタ】RG代替品（TR・プレゼント品等）判定リスト
+        ON ma.product_id = su.product_id
+        WHERE
+            ma.product_external_id4 = 'RG'
+           OR COALESCE(su.is_rg_substitute, 0) = 1
+        GROUP BY
+            ma.user_id, ma.order_id, ma.product_id
+    )
+    -- Exclude system returns/cancellations to reduce noise
+    WHERE NOT (is_sys_cnsl = 1 OR is_sys_return = 1)
+    GROUP BY
+        user_id, order_id
+),
+
+----------------------------------------------------------------------
+-- 4. [Substitute Pool: Return] EQUIVALENTゲート専用の隔離プール（返品側）
+--    Data Grain: order_id
+----------------------------------------------------------------------
+return_table_with_substitute AS (
+    SELECT
+        user_id,
+        order_id,
+        MAX(shipment_date)  AS ship_date,
+        LISTAGG(product_cate_lvl_5 || ':' || TO_VARCHAR(quantity), '|') WITHIN GROUP (ORDER BY product_cate_lvl_5 ASC, quantity ASC) AS fp_cate_qty
+
+    FROM (
+        SELECT
+            ma.user_id,
+            ma.order_id,
+            ma.product_id,
+            MAX(ma.product_analysis_category_level_5) AS product_cate_lvl_5,
+            MAX(ma.scheduled_ship_date)  AS shipment_date,
+            SUM(ma.quantity)             AS quantity
+        FROM
+            stg_all_purchases_base ma       -- 【前工程】05_fct_all_purchases_unified
+        LEFT JOIN
+            dim_rg_substitute_products su   -- 【商品マスタ】RG代替品（TR・プレゼント品等）判定リスト
+        ON ma.product_id = su.product_id
+        WHERE
+            (ma.product_external_id4 = 'RG' OR COALESCE(su.is_rg_substitute, 0) = 1)
+          AND ma.is_sys_cnsl <> 1
+          AND ma.is_sys_return = 1
+          AND ma.is_dummy_shipment <> 1
+        GROUP BY
+            ma.user_id, ma.order_id, ma.product_id
+    )
+    GROUP BY
+        user_id, order_id
+),
+
+----------------------------------------------------------------------
+-- 5~11. [Matching Gates] 第1〜7関門のマッチング処理
 --    Data Grain: dummy_ship_order_id, fake_return_order_id
 ----------------------------------------------------------------------
 find_dummy_pairs_gate_1 AS (
@@ -198,11 +284,11 @@ find_dummy_pairs_gate_1 AS (
         a.user_id, a.order_id AS dummy_ship_order_id, b.order_id AS fake_return_order_id,
         a.ship_date AS ship_date_dummy_ship, b.ship_date AS ship_date_fake_return,
         100 AS match_score, 'STRICT' AS match_strength
-    FROM base_order_dummy_table a   
-    INNER JOIN base_order_return_table b ON a.user_id = b.user_id 
-        AND a.fp_product_qty = b.fp_product_qty AND a.total_payment_amount = b.total_payment_amount                  
+    FROM base_order_dummy_table a
+    INNER JOIN base_order_return_table b ON a.user_id = b.user_id
+        AND a.fp_product_qty = b.fp_product_qty AND a.total_payment_amount = b.total_payment_amount
     WHERE a.ship_date > b.ship_date
-), 
+),
 
 find_dummy_pairs_gate_2 AS (
     -- [FLEXIBLE] カテゴリ+数量 ＆ 金額
@@ -210,11 +296,11 @@ find_dummy_pairs_gate_2 AS (
         c.user_id, c.order_id AS dummy_ship_order_id, d.order_id AS fake_return_order_id,
         c.ship_date AS ship_date_dummy_ship, d.ship_date AS ship_date_fake_return,
         80 AS match_score, 'FLEXIBLE' AS match_strength
-    FROM base_order_dummy_table c   
-    INNER JOIN base_order_return_table d ON c.user_id = d.user_id 
-        AND c.fp_cate_qty = d.fp_cate_qty AND c.total_payment_amount = d.total_payment_amount                                        
+    FROM base_order_dummy_table c
+    INNER JOIN base_order_return_table d ON c.user_id = d.user_id
+        AND c.fp_cate_qty = d.fp_cate_qty AND c.total_payment_amount = d.total_payment_amount
     WHERE c.ship_date > d.ship_date
-), 
+),
 
 find_dummy_pairs_gate_3 AS (
     -- [RELAXED] カテゴリ+数量 のみ（金額ズレ救済）
@@ -222,22 +308,23 @@ find_dummy_pairs_gate_3 AS (
         e.user_id, e.order_id AS dummy_ship_order_id, f.order_id AS fake_return_order_id,
         e.ship_date AS ship_date_dummy_ship, f.ship_date AS ship_date_fake_return,
         60 AS match_score, 'RELAXED' AS match_strength
-    FROM base_order_dummy_table e   
-    INNER JOIN base_order_return_table f ON e.user_id = f.user_id 
-        AND e.fp_cate_qty = f.fp_cate_qty  
+    FROM base_order_dummy_table e
+    INNER JOIN base_order_return_table f ON e.user_id = f.user_id
+        AND e.fp_cate_qty = f.fp_cate_qty
     WHERE e.ship_date > f.ship_date
-), 
+),
 
 find_dummy_pairs_gate_4 AS (
-    -- [POTENTIAL] カテゴリ大枠 ＆ 合計数量（個別数量ズレ救済）
+    -- [EQUIVALENT] 代替品を許容した隔離プールでのカテゴリ+数量一致
+    --   ★安全設計: 通常プールに混ぜず専用の隔離プール(3~4)でのみ判定することで、誤結合ノイズを排除。
     SELECT
-        g.user_id, g.order_id AS dummy_ship_order_id, h.order_id AS fake_return_order_id,
-        g.ship_date AS ship_date_dummy_ship, h.ship_date AS ship_date_fake_return,
-        10 AS match_score, 'POTENTIAL' AS match_strength
-    FROM base_order_dummy_table g   
-    INNER JOIN base_order_return_table h ON g.user_id = h.user_id 
-        AND g.fp_cate_only = h.fp_cate_only AND g.rg_quantity = h.rg_quantity                                        
-    WHERE g.ship_date > h.ship_date
+        r.user_id, r.order_id AS dummy_ship_order_id, s.order_id AS fake_return_order_id,
+        r.ship_date AS ship_date_dummy_ship, s.ship_date AS ship_date_fake_return,
+        50 AS match_score, 'EQUIVALENT' AS match_strength
+    FROM dummy_table_with_substitute r
+    INNER JOIN return_table_with_substitute s ON r.user_id = s.user_id
+        AND r.fp_cate_qty = s.fp_cate_qty
+    WHERE r.ship_date > s.ship_date
 ),
 
 find_dummy_pairs_gate_5 AS (
@@ -246,9 +333,9 @@ find_dummy_pairs_gate_5 AS (
         i.user_id, i.order_id AS dummy_ship_order_id, j.order_id AS fake_return_order_id,
         i.ship_date AS ship_date_dummy_ship, j.ship_date AS ship_date_fake_return,
         40 AS match_score, 'INCLUSIVE' AS match_strength
-    FROM base_order_dummy_table i   
-    INNER JOIN base_order_return_table j ON i.user_id = j.user_id 
-        AND i.fp_product_only = j.fp_product_only AND i.order_id_prefix = 'L' 
+    FROM base_order_dummy_table i
+    INNER JOIN base_order_return_table j ON i.user_id = j.user_id
+        AND i.fp_product_only = j.fp_product_only AND i.order_id_prefix = 'L'
     WHERE i.ship_date > j.ship_date
 ),
 
@@ -258,14 +345,26 @@ find_dummy_pairs_gate_6 AS (
         k.user_id, k.order_id AS dummy_ship_order_id, l.order_id AS fake_return_order_id,
         k.ship_date AS ship_date_dummy_ship, l.ship_date AS ship_date_fake_return,
         30 AS match_score, 'GENERIC' AS match_strength
-    FROM base_order_dummy_table k   
-    INNER JOIN base_order_return_table l ON k.user_id = l.user_id 
+    FROM base_order_dummy_table k
+    INNER JOIN base_order_return_table l ON k.user_id = l.user_id
         AND k.fp_cate_only = l.fp_cate_only AND k.order_id_prefix = 'L'
     WHERE k.ship_date > l.ship_date
 ),
 
+find_dummy_pairs_gate_7 AS (
+    -- [POTENTIAL] カテゴリ大枠 ＆ 合計数量（個別数量ズレ救済）
+    SELECT
+        g.user_id, g.order_id AS dummy_ship_order_id, h.order_id AS fake_return_order_id,
+        g.ship_date AS ship_date_dummy_ship, h.ship_date AS ship_date_fake_return,
+        10 AS match_score, 'POTENTIAL' AS match_strength
+    FROM base_order_dummy_table g
+    INNER JOIN base_order_return_table h ON g.user_id = h.user_id
+        AND g.fp_cate_only = h.fp_cate_only AND g.rg_quantity = h.rg_quantity
+    WHERE g.ship_date > h.ship_date
+),
+
 ----------------------------------------------------------------------
--- 9~10. [Union & Ranking] 全関門の統合と優先順位の確定
+-- 12~13. [Union & Ranking] 全関門の統合と優先順位の確定
 ----------------------------------------------------------------------
 find_dummy_pairs_gate_union AS (
     SELECT * FROM find_dummy_pairs_gate_1 UNION ALL
@@ -273,7 +372,8 @@ find_dummy_pairs_gate_union AS (
     SELECT * FROM find_dummy_pairs_gate_3 UNION ALL
     SELECT * FROM find_dummy_pairs_gate_4 UNION ALL
     SELECT * FROM find_dummy_pairs_gate_5 UNION ALL
-    SELECT * FROM find_dummy_pairs_gate_6
+    SELECT * FROM find_dummy_pairs_gate_6 UNION ALL
+    SELECT * FROM find_dummy_pairs_gate_7
 ),
 
 evaluate_conflict_rank AS (
@@ -288,7 +388,7 @@ evaluate_conflict_rank AS (
 ),
 
 ----------------------------------------------------------------------
--- 11~14. [Conflict Resolution] カスケード型貪欲法（Greedy Algorithm）による競合解消
+-- 14~17. [Conflict Resolution] カスケード型貪欲法（Greedy Algorithm）による競合解消
 ----------------------------------------------------------------------
 resolve_rank_1_pairs AS (
     -- [Rank 1] 最優先ペアの確定
@@ -304,7 +404,7 @@ resolve_rank_2_pairs AS (
     LEFT JOIN resolve_rank_1_pairs n ON m.dummy_ship_order_id = n.dummy_ship_order_id
     LEFT JOIN resolve_rank_1_pairs o ON m.fake_return_order_id = o.fake_return_order_id
     WHERE n.is_rank_1 IS NULL AND o.is_rank_1 IS NULL
-    QUALIFY ROW_NUMBER() OVER(PARTITION BY m.user_id ORDER BY m.conflict_rank ASC) = 1 
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY m.user_id ORDER BY m.conflict_rank ASC) = 1
 ),
 
 resolve_rank_3_pairs AS (
@@ -317,7 +417,7 @@ resolve_rank_3_pairs AS (
     LEFT JOIN resolve_rank_2_pairs s ON p.dummy_ship_order_id = s.dummy_ship_order_id
     LEFT JOIN resolve_rank_2_pairs t ON p.fake_return_order_id = t.fake_return_order_id
     WHERE q.is_rank_1 IS NULL AND r.is_rank_1 IS NULL AND s.is_rank_2 IS NULL AND t.is_rank_2 IS NULL
-    QUALIFY ROW_NUMBER() OVER(PARTITION BY p.user_id ORDER BY p.conflict_rank ASC) = 1 
+    QUALIFY ROW_NUMBER() OVER(PARTITION BY p.user_id ORDER BY p.conflict_rank ASC) = 1
 ),
 
 final_resolved_pairs AS (
@@ -328,45 +428,46 @@ final_resolved_pairs AS (
 )
 
 ----------------------------------------------------------------------
--- 15. [Final Output] 最終出力およびSLI（モニタリング指標）の算出
+-- 18. [Final Output] 最終出力およびSLI（モニタリング指標）の算出
 ----------------------------------------------------------------------
 SELECT
     -- ====== IDs ======
-    z.user_id                           AS "ユーザーID", 
+    z.user_id                           AS "ユーザーID",
     z.order_id                          AS "注文ID",
-    NULLIF(y.fake_return_order_id, '')  AS "注文ID_形式的返品", 
-    
+    NULLIF(y.fake_return_order_id, '')  AS "注文ID_形式的返品",
+
     -- ====== Dates & Financials ======
     z.ship_date              AS "出荷日",
-    z.rg_quantity            AS "累計注文数", 
-    z.total_payment_amount   AS "支払金額合計（税込）", 
-    
+    z.rg_quantity            AS "累計注文数",
+    z.total_payment_amount   AS "支払金額合計（税込）",
+
     -- ====== Returns Info ======
     z.is_biz_cnsl            AS "CNSLフラグ",
-    z.is_biz_return          AS "返品フラグ", 
+    z.is_biz_return          AS "返品フラグ",
     z.is_sys_cnsl            AS "CNSLフラグ_システム基準",
     z.is_sys_return          AS "返品フラグ_システム基準",
     z.return_completed_date  AS "返品受付日",
     z.return_reason_note     AS "返品理由",
-    
+
     -- ====== Match Status & Scores ======
-    CASE WHEN NULLIF(y.fake_return_order_id, '') IS NOT NULL THEN 1 ELSE 0 END AS "紐づけフラグ", 
-    COALESCE(NULLIF(y.match_strength, ''), 'UNMATCHED') AS "紐づけ強度", 
-    COALESCE(y.match_score, 0)  AS "データ信頼度", 
-    
+    CASE WHEN NULLIF(y.fake_return_order_id, '') IS NOT NULL THEN 1 ELSE 0 END AS "紐づけフラグ",
+    COALESCE(NULLIF(y.match_strength, ''), 'UNMATCHED') AS "紐づけ強度",
+    COALESCE(y.match_score, 0)  AS "データ信頼度",
+
     -- ====== Data Observability (SLIs) ======
     ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'STRICT' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「STRICT」の割合",
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'FLEXIBLE' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「FLEXIBLE」の割合", 
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'RELAXED' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「RELAXED」の割合", 
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'INCLUSIVE' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「INCLUSIVE」の割合", 
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'GENERIC' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「GENERIC」の割合", 
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'POTENTIAL' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「POTENTIAL」の割合", 
-    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') IS NULL THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「UNMATCHED」の割合" 
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'FLEXIBLE' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「FLEXIBLE」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'RELAXED' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「RELAXED」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'EQUIVALENT' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「EQUIVALENT」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'INCLUSIVE' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「INCLUSIVE」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'GENERIC' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「GENERIC」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') = 'POTENTIAL' THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「POTENTIAL」の割合",
+    ROUND(100.0 * SUM(CASE WHEN NULLIF(y.match_strength, '') IS NULL THEN 1 ELSE 0 END) OVER () / NULLIF(COUNT(*) OVER (), 0), 4) AS "紐づけ強度「UNMATCHED」の割合"
 
 FROM
-    base_order_dummy_table z   
+    base_order_dummy_table z
 LEFT JOIN
     final_resolved_pairs y ON z.order_id = y.dummy_ship_order_id
-ORDER BY 
+ORDER BY
     z.ship_date DESC
 ;

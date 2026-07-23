@@ -10,15 +10,15 @@
   1. データ欠損の多段フォールバック修復 (Multi-Tier Data Restoration)
      前工程（stg_no_real_ship_matching）で特定したペア情報を用い、旧システム（Legacy）起因で
      「返品時に欠損した（0円になった）金額や数量」に対して、対となるダミー出荷が持つ
-     正しい実績値をウィンドウ関数（Window Functions）で安全に伝播・上書き（Override）します。
-     さらに、旧システム起因の「返品時に欠損した（0円になった）金額や数量」に対し、ダミー出荷の実績値を上書きします。
+     正しい実績値（数量・金額・支払方法・入金済フラグ等）をウィンドウ関数（Window Functions）で
+     安全に伝播・上書き（Override）します。
      ★【重要】元注文とダミー注文間で「商品の分裂・合算・ID変更」が発生した場合に備え、以下の3段構えのルートで修復します。
        ① 通常ルート: 商品ID＋枝番 が完全一致する場合 (1-to-1 Exact Match)
        ② 分裂ルート: ダミー側で明細が分裂した場合、カテゴリ単位で合算した値を適用 (Category-Level Rollup)
        ③ ID違いルート: 明細数は同じだが商品IDが変わった場合、カテゴリ内の連番でお見合い適用 (Category-Sequential Match)
   2. ステータスの継承 (Status Inheritance)
-     形式的返品レコードに対し、対になるダミー出荷の最終ステータス（本当に返品されたか等）
-     を継承させ、ビジネス実態に基づいた正しい「返品フラグ」を再構築します。
+     形式的返品レコードに対し、対になるダミー出荷の最終ステータス（入金済か、本当に返品されたか等）
+     を継承させ、ビジネス実態に基づいた正しい「入金済フラグ」「返品フラグ」を再構築します。
      ★【追加】ダミー側が単品で登録された場合でも、元注文の「定期属性（is_subsc）」を復元・継承します。
   3. フェイルセーフ除外 (Fail-safe Exclusion)
      役割を終えたダミー出荷レコードを売上二重計上防止のために除外します。ただし、
@@ -326,8 +326,9 @@ SELECT
     -- ====== Order Info ======
     order_type                               AS "受注経路", 
     order_status                             AS "注文ステータス",
-    order_status_numbr                       AS "受注明細状態", 
-    payment_method_override                  AS "支払方法", 
+    order_status_numbr                       AS "受注明細状態",
+    payment_method_override                  AS "支払方法",
+    is_payment_received_override             AS "入金済フラグ",
     member_rank_at_order                     AS "注文時会員ランク",
     latest_ad_code                           AS "受注プロモ", 
     operator_code                            AS "受付者コード",
@@ -348,7 +349,7 @@ SELECT
     COALESCE(validated_discounted_incl_point_excl_tax_override, validated_discounted_incl_point_excl_tax) AS "P使用後_割引後金額 (税抜)",
 
     -- ====== Subscription ======
-    is_subsc                                 AS "定期フラグ",
+    is_subsc_override                        AS "定期フラグ",
     subsc_id_override                        AS "定期購入ID",
     subsc_cycle_at_order                     AS "定期購入回（注文時点）",
     subsc_cycle_at_shipment                  AS "定期購入回（出荷時点）",
