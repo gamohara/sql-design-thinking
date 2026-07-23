@@ -1,0 +1,18 @@
+# 実務の生データ・作業用ディレクトリ（絶対にコミットしない）
+_raw/
+_local/
+_wip/
+
+# データファイル
+*.csv
+*.xlsx
+*.tsv
+
+# 認証情報
+.env
+*.key
+
+# OS・エディタが勝手に作るファイル
+.DS_Store
+Thumbs.db
+.vscode/
