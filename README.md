@@ -99,11 +99,11 @@ These examples demonstrate SQL patterns used for:
 
 # Overall Architecture / 全体アーキテクチャ
 
-`business_cases` 配下の4つのケースは、それぞれ独立したサンプルであると同時に、  
-実際には**1つの大きなデータ基盤（受注データ統合 → マーケティングKPI基盤）を構成するモジュール群**として設計されています。
+`business_cases` 配下の5つのケースは、それぞれ独立したサンプルであると同時に、  
+実際には**1つの大きなデータ基盤（受注データ統合 → マーケティングKPI基盤 → 顧客特典配布）を構成するモジュール群**として設計されています。
 
-The four cases under `business_cases` can be read independently, but they are also designed as  
-**modules of a single, larger data platform** (order data integration → marketing KPI foundation).
+The five cases under `business_cases` can be read independently, but they are also designed as  
+**modules of a single, larger data platform** (order data integration → marketing KPI foundation → customer reward fulfillment).
 
 ```mermaid
 graph TD
@@ -119,6 +119,9 @@ graph TD
     mdm -->|merged customer master| amf
 
     amf["📁 Advanced_marketing_foundation<br/>純新規判定・マーケティングKPI基盤"]:::case
+    amf -->|"stg_all_purchases_base（購入・定期実績の土台）"| smgf
+
+    smgf["📁 subscription_milestone_gift_fulfillment<br/>定期購入マイルストーン特典配布システム"]:::case
 
     classDef case fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
 ```
@@ -126,7 +129,8 @@ graph TD
 - **subscription**: 定期購入の金額・ポイント配分ロジック → `Unified-Order-Line-Fact` の定期情報として参照
 - **customer_entity_resolution_mdm**: 顧客の名寄せ・重複検知 → `Unified-Order-Line-Fact` のブラックリスト判定、および `Advanced_marketing_foundation` の顧客統合に耐えうる純新規判定の土台
 - **Unified-Order-Line-Fact**: 受注明細単位での金額・ステータスの統合ファクトテーブル構築（出力が次工程の入力になる）
-- **Advanced_marketing_foundation**: 上記すべてを土台に、マーケティングKPI（純新規・LTV等）を算出する最終レイヤー
+- **Advanced_marketing_foundation**: 上記すべてを土台に、マーケティングKPI（純新規・LTV等）を算出するレイヤー
+- **subscription_milestone_gift_fulfillment**: 定期購入が特定の累計本数に到達した顧客へデジタルギフトを付与する、20クエリ構成のCRM/マーケティング自動化パイプライン（最終レイヤー）
 
 各ケースのREADMEには、この全体像における位置づけ（Upstream / Downstream）を明記しています。
 
@@ -144,6 +148,8 @@ graph TD
  │    └── 📁 unified_order_line_fact
  │    │
  │    └── 📁 advanced_marketing_foundation
+ │    │
+ │    └── 📁 subscription_milestone_gift_fulfillment
  │
  └── 📁 advanced_sql_recipes
 ```
