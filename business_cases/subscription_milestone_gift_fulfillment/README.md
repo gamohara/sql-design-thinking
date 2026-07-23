@@ -140,3 +140,35 @@ graph TD
 - 実在する商品ライン名 → `PRODUCT_LINE_A` / `PRODUCT_LINE_B` 等の汎用フラグ名に一般化
 - 内部システム固有のテーブル・カラム識別子（`DP_SQL_JOB_xxxx`等）→ `raw_` / `stg_` / `int_` / `mart_` / `dim_` / `map_` の命名規則に統一
 - GUI（BIツール）のパラメータ層で行われる軽量なフィルタ・加工工程は、対応するSQLクエリのREADME内で「GUIパラメータ層」として明記し、別クエリ化はしていません
+
+---
+
+## 設計判断の背景 / Design Decision Background
+
+本ケースを一般化・ドキュメント化する過程で下した、クエリ個別のロジックとは別の構成上の判断を記録します（各クエリの設計パターン自体は、それぞれのREADMEの `SQL Design Pattern` セクションを参照してください）。
+
+Beyond the logic of each individual query (documented in that query's own `SQL Design Pattern` section), this section records the structural decisions made while generalizing and documenting this case as a whole.
+
+### 1. 元の場当たり的な番号（02_02、99_06等）を、01〜20の連番＋レイヤー接頭辞に統一する
+
+**判断**: 元システムでは各クエリが `02_02`、`03_04`、`99_06` のような、追加された順序やGUIブロック番号に依存した場当たり的な番号を持っていた。本リポジトリでは、これを他の4ケースと同じ「01〜20の連番＋`stg_`/`int_`/`mart_`/`audit_` のレイヤー接頭辞」という命名規則に統一した。
+
+**理由**: リポジトリ全体で一貫したディレクトリ構成・命名規則を保つことで、読者がケースを跨いで読む際の学習コストを下げる。また、レイヤー接頭辞により、各クエリがパイプライン内でどの役割（素材抽出／ビジネスロジック適用／最終成果物／監査）を担うかが名前だけで分かるようにした。
+
+**トレードオフ**: 元の番号（例: `99_06`）が持っていた「どのGUIブロックの何番目の追加だったか」という開発履歴上の文脈は失われる。この対応関係が必要な場合は、各クエリのREADME内の記述で元の処理内容を追跡する必要がある。
+
+**Decision**: The original system numbered each query ad hoc — based on the order it was added or its GUI block number (e.g. `02_02`, `03_04`, `99_06`). This repository renumbers all 20 queries into a clean `01`–`20` sequence with layer prefixes (`stg_`/`int_`/`mart_`/`audit_`), matching the other 4 cases.
+**Rationale**: A consistent naming/directory convention across the whole repository lowers the learning cost of reading across cases, and the layer prefix makes each query's pipeline role (extraction, business logic, final deliverable, or audit) visible from its name alone.
+**Tradeoff**: The original numbers' development history — which GUI block a step was added under, and in what order — is lost. Recovering that context now requires reading the description of the original processing inside each query's README.
+
+### 2. GUI（BIツール）でのみ計算される中間テーブルは、SQLを新規に書き起こさず、プロース参照として扱う
+
+**判断**: `stg_gift_timing_base`、`stg_gift_target_near_term`、`stg_past_delivery_bounce` など、元システムでGUI/BIツールのレシピステップとして処理されていた（SQLとして提供されなかった）中間テーブルについて、本リポジトリでは推測でSQLを書き起こすことをせず、各クエリのREADME内に「GUIパラメータ層」として文章で説明するのみに留めた。
+
+**理由**: 実際のGUI処理内容が不明な部分を、それらしいSQLとして書き起こすと、実在しないロジックを事実として提示してしまうリスクがある。本リポジトリは実務ロジックの正確な抽象化を目的としているため、不確かな部分を憶測で補完しないことを優先した。
+
+**トレードオフ**: 結果として、本ケースの20クエリだけではパイプラインが完全にend-to-endで実行可能な形にはならない（GUI層の入力を仮定する前提になる）。これは各クエリのREADME内で明記し、読者が「どこまでがSQLで検証可能で、どこからが前提条件か」を判断できるようにしている。
+
+**Decision**: For intermediate tables that the original system computed via GUI/BI-tool recipe steps rather than SQL (e.g. `stg_gift_timing_base`, `stg_gift_target_near_term`, `stg_past_delivery_bounce`), this repository does not fabricate a plausible-looking SQL file. It documents them only as prose ("GUI parameter layer") references inside the relevant queries' READMEs.
+**Rationale**: Writing plausible SQL for logic whose actual GUI-side implementation is unknown risks presenting fabricated logic as fact. Since this repository's purpose is accurate abstraction of real-world logic, avoiding speculative fill-in was prioritized over completeness.
+**Tradeoff**: As a result, this case's 20 queries alone do not form a fully executable end-to-end pipeline — they assume certain GUI-layer inputs as given. This is stated explicitly in each affected query's README so readers can tell what is SQL-verifiable versus an assumed precondition.
