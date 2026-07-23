@@ -100,7 +100,7 @@ BIツール向けコード変換（支払方法、受注経路など）および
 
 ### BIツール連携の最適化 (BI Tool Integration)
 
-このテーブルの出力結果は、BIツール（Tableau, Looker, b-dash等）に直接接続されることを前提としています。カラム名が日本語にエイリアスされているため、ビジネスユーザーは事前のメタデータ定義なしで即座にピボットテーブル等の分析を開始可能です。  
+このテーブルの出力結果は、各種BIツールに直接接続されることを前提としています。カラム名が日本語にエイリアスされているため、ビジネスユーザーは事前のメタデータ定義なしで即座にピボットテーブル等の分析を開始可能です。  
 
 The output of this table is designed for direct connection to BI tools. Because column names are aliased in business-friendly Japanese, end-users can immediately begin drag-and-drop analysis without requiring preliminary metadata definitions in the BI semantic layer.  
 
