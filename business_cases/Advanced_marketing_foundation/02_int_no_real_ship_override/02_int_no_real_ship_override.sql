@@ -23,18 +23,27 @@
   3. フェイルセーフ除外 (Fail-safe Exclusion)
      役割を終えたダミー出荷レコードを売上二重計上防止のために除外します。ただし、
      紐付けエラーとなったダミー出荷は売上消失防止のため、あえて残す安全制御を行います。
+  4. みなし配達完了の補正 (Deemed Delivery Completion)
+     代引き・後払い等「入金実績が商品到着の証左となる」決済方法において、入金済かつ
+     出荷完了（物理配送の追跡がダミー出荷対応により途切れている）状態のまま止まっている
+     レコードを、ビジネス実態に基づき「配達完了」へ強制補正します。
 
   1. Multi-Tier Data Restoration
-     Safely restores missing financial/quantity data in legacy returns by propagating actual values 
-     from paired dummy shipments. Implements a 3-tier fallback architecture (Exact Match, 
-     Category Rollup, and Category-Sequential Match) to handle extreme edge cases where items 
+     Safely restores missing financial/quantity data in legacy returns by propagating actual values
+     from paired dummy shipments. Implements a 3-tier fallback architecture (Exact Match,
+     Category Rollup, and Category-Sequential Match) to handle extreme edge cases where items
      are split, merged, or substituted across original and dummy orders.
   2. Status Inheritance
-     Formal returns inherit the final business status (e.g., payment received, actual return) 
+     Formal returns inherit the final business status (e.g., payment received, actual return)
      from their paired dummy shipments. Added logic also rescues missing subscription attributes.
   3. Fail-safe Exclusion
-     Matched dummy shipments are excluded to prevent double-counting, while unmatched ones 
+     Matched dummy shipments are excluded to prevent double-counting, while unmatched ones
      are intentionally retained as a fail-safe against revenue loss.
+  4. Deemed Delivery Completion
+     For payment methods where a confirmed payment is itself evidence of goods received
+     (e.g., COD, postpay), records stuck at "shipped" status due to the dummy-shipment
+     workaround (which breaks physical delivery tracking) are force-corrected to "delivered"
+     based on business reality.
 
 【CTE構造 / CTE Structure】
 ----------------------------------------------------------------------------------------------
@@ -61,7 +70,11 @@ This query consists of the following processing layers.
      状態（一致・分裂）に応じた最適なルートの値をフォールバックで選択し上書き
      Restoration of missing legacy data through value overriding.
 
-  6. Final Output
+  6. apply_deemed_delivery
+     決済方法と入金実績をエビデンスとした「みなし配達完了」ステータスの補正
+     Correction of order status to "delivered" based on payment method and payment confirmation.
+
+  7. Final Output
      返品フラグの継承、派生フラグの生成、およびフェイルセーフ除外の適用
      Inheritance of return flags, generation of derived flags, and application of fail-safe exclusion.
 
@@ -304,10 +317,52 @@ override_base_data AS (
 
     FROM
         window_values
+),
+
+----------------------------------------------------------------------
+-- 6. [Deemed Delivery] みなし配達完了の補正
+--    ダミー出荷対応により物理配送の追跡が途切れ、「出荷完了」で止まっているレコードのうち、
+--    入金実績（COD/後払い等）がビジネス上の受取確認として十分な場合、配達完了へ補正する。
+--    Data Grain: order_id, line_no
+----------------------------------------------------------------------
+apply_deemed_delivery AS (
+    SELECT
+        *,
+        CASE
+            -- 入金＝受取確認となる決済方法において、入金済かつ「出荷完了」で止まっている場合
+            WHEN payment_method_override IN ('CARRIER_BILLING', 'POSTPAY', 'COD', 'DIGITAL_WALLET')
+             AND is_payment_received_override = 1
+             AND order_status_numbr = 5  -- 出荷完了 (SHP_COMP) のみ対象
+             AND (
+                    -- Pattern (1): 実発送なし かつ 紐付け失敗（相方のいないダミー）
+                    (is_no_real_ship = 1 AND is_match <> 1)
+                 OR
+                    -- Pattern (2): 実発送なしではない かつ 紐付け成功（ダミー返品された元受注）
+                    (is_no_real_ship <> 1 AND is_match = 1)
+                 )
+                THEN 6 -- 6 = 配達完了 (DLV_COMP)
+            ELSE order_status_numbr
+        END AS order_status_numbr_deemed,
+
+        CASE
+            WHEN payment_method_override IN ('CARRIER_BILLING', 'POSTPAY', 'COD', 'DIGITAL_WALLET')
+             AND is_payment_received_override = 1
+             AND order_status_numbr = 5
+             AND (
+                    (is_no_real_ship = 1 AND is_match <> 1)
+                 OR
+                    (is_no_real_ship <> 1 AND is_match = 1)
+                 )
+                THEN 'DLV_COMP'
+            ELSE order_status
+        END AS order_status_deemed
+
+    FROM
+        override_base_data
 )
 
 ----------------------------------------------------------------------
--- 6. [Final Output] フラグ継承とフェイルセーフ適用
+-- 7. [Final Output] フラグ継承とフェイルセーフ適用
 --    Data Grain: order_id, line_no
 ----------------------------------------------------------------------
 SELECT
@@ -324,15 +379,17 @@ SELECT
     product_analysis_category_level_6        AS "分析用分類【第6階層】",
 
     -- ====== Order Info ======
-    order_type                               AS "受注経路", 
-    order_status                             AS "注文ステータス",
-    order_status_numbr                       AS "受注明細状態",
+    order_type                               AS "受注経路",
+    order_status_deemed                      AS "注文ステータス",   -- 上書き済（みなし配達完了 補正後）
+    order_status_numbr_deemed                AS "受注明細状態",     -- 上書き済（みなし配達完了 補正後）
     payment_method_override                  AS "支払方法",
     is_payment_received_override             AS "入金済フラグ",
     member_rank_at_order                     AS "注文時会員ランク",
-    latest_ad_code                           AS "受注プロモ", 
+    latest_ad_code                           AS "受注プロモ",
     operator_code                            AS "受付者コード",
     is_ec_order_without_promo_code           AS "[プロモ空欄かつ経路EC]フラグ",
+    is_no_real_ship                          AS "実発送なしフラグ",
+    is_match                                 AS "紐づけ成功フラグ",
 
     -- ====== Dates ======
     ordered_at                               AS "受注日時",
@@ -397,9 +454,9 @@ SELECT
     END AS "返品理由"
 
 FROM
-    override_base_data
+    apply_deemed_delivery
 
-WHERE 
+WHERE
     -- [Fail-safe Exclusion]
     -- 紐付け成功したダミー出荷のみを除外。エラーになったダミーは売上消失防止のため残す。
     NOT (is_no_real_ship = 1 AND order_id <> COALESCE(paired_return_id, '') AND COALESCE(is_match, 0) = 1)

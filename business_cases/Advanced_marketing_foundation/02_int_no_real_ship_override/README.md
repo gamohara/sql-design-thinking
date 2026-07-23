@@ -5,11 +5,12 @@ ECシステムの「ダミー出荷（実発送なし対応）」に起因する
 以下の高度なアーキテクチャを含みます。
 - データの分裂・合算・ID変更というカオスな非対称性に対応する **「多段フォールバック修復（Multi-Tier Data Restoration）」**
 - 形式的返品から最終的なビジネス実態（入金済等）への **「ステータス継承（Status Inheritance）」**
+- 決済実績をエビデンスとして物理配送の欠落を補う **「みなし配達完了補正（Deemed Delivery Completion）」**
 - 紐付けエラーを許容し、売上消失を防ぐための **「フェイルセーフ制御（Fail-safe Control）」**
 
 このSQLは、データエンジニアリングにおける「異常データの補正」と「システム制約による欠損の安全な復元」を行うアーキテクチャ・パターンの実践例です。
 
-Example SQL for repairing double-counted revenues and missing financial data caused by operational dummy shipments. This example showcases advanced architectural patterns, including a multi-tier fallback mechanism to handle asymmetric data splits/merges, dynamic status inheritance, and fail-safe controls to prevent revenue loss.
+Example SQL for repairing double-counted revenues and missing financial data caused by operational dummy shipments. This example showcases advanced architectural patterns, including a multi-tier fallback mechanism to handle asymmetric data splits/merges, dynamic status inheritance, deemed-delivery status correction based on payment evidence, and fail-safe controls to prevent revenue loss.
 
 ---
 
@@ -41,6 +42,24 @@ By utilizing Window Functions, the pipeline implements a 3-tier fallback archite
 
 ---
 
+# SQL Design Pattern (2)
+決済実績によるみなし配達完了補正
+Deemed Delivery Completion via Payment Evidence
+
+## 課題 / Problem
+
+ダミー出荷対応（実発送なし）が発生した注文は、物理的な配送実績（運送会社との連携）が途切れるため、システム上のステータスが永久に「出荷完了」で止まってしまいます。しかし、代引きや後払いなど「入金が確認された時点で商品が顧客の手元に渡っている」と業務上判断できる決済方法では、この「配達未完了」という見た目上のステータスは実態と一致していません。
+
+Orders affected by the dummy-shipment workaround lose their physical delivery tracking, so their system status remains permanently stuck at "shipped." However, for payment methods like COD or postpay—where a confirmed payment is itself proof that the customer has received the goods—this apparent "not yet delivered" status does not reflect business reality.
+
+## 解決策 / Solution
+
+対象の決済方法（COD、後払い、キャリア決済、デジタルウォレット等）で入金済かつ「出荷完了」のまま止まっている注文のうち、①実発送なし側で紐付けが失敗したケース、②紐付けに成功した元受注（ダミー返品された側）のケースを条件に、ステータスを「配達完了」へ強制補正します。これにより、物理配送情報の欠落によって継続率やLTV計算から誤って除外されるレコードを防ぎます。
+
+For orders using qualifying payment methods (COD, postpay, carrier billing, digital wallets) that are confirmed as paid but stuck at "shipped," the status is force-corrected to "delivered" when either (1) the dummy shipment failed to match a return, or (2) the original order successfully matched as a dummy-returned counterpart. This prevents such records from being incorrectly excluded from retention and LTV calculations due to missing physical delivery data.
+
+---
+
 ## 処理ステップ / Processing Steps
 
 本SQLは以下の処理ステップ（CTE）で構成されています。
@@ -60,7 +79,10 @@ By utilizing Window Functions, the pipeline implements a 3-tier fallback archite
 ### 5. Data Override
 旧形式データの欠損修復（金額・数量等のオーバーライド）
 
-### 6. Final Output & Fail-safe Exclusion
+### 6. Deemed Delivery Completion
+決済方法と入金実績をエビデンスとした「みなし配達完了」ステータスの補正
+
+### 7. Final Output & Fail-safe Exclusion
 返品フラグの継承、派生フラグの生成、およびフェイルセーフ除外の適用
 
 ---
@@ -102,3 +124,8 @@ The extraction condition match_score >= 30 is a critical threshold. If regular d
 
 ### 派生フラグの活用 (Leveraging Derived Flags)  
 本クエリで出力される ダミー返品フラグ (is_dummy_return) と 返品_返金保証除く_フラグ (is_pure_return) は、BIツール等で極めて重要です。「システム上の返品率」ではなく、「顧客の不満に起因する真の返品率」をダッシュボードでモニタリングする際は、これらのフラグをフィルターとして活用してください。
+
+### みなし配達完了の対象決済方法メンテナンス (Deemed Delivery Payment Method List)  
+`apply_deemed_delivery` CTE内の対象決済方法リスト（COD、後払い、キャリア決済、デジタルウォレット等）は、「入金＝受取確認」とみなせる決済手段のみに限定した重要なホワイトリストです。新しい決済方法が追加された場合、それが受取確認のエビデンスとして十分かをビジネス側と確認した上で、このリストを更新してください。安易な追加は「未配達なのに配達完了扱いになる」誤補正のリスクを生みます。  
+
+The list of qualifying payment methods in the `apply_deemed_delivery` CTE (COD, postpay, carrier billing, digital wallets, etc.) is a deliberately narrow whitelist limited to methods where payment confirmation is equivalent to receipt confirmation. Before adding a new payment method, confirm with the business team that it is sufficient evidence of receipt — a careless addition risks mis-marking undelivered orders as delivered.  
