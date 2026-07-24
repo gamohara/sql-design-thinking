@@ -82,7 +82,7 @@ extract_digital_gift_codes AS (
         expiration_date,
         serial_number
     FROM
-        map_gift_code_inventory -- デジタルギフトコード一覧.csv
+        map_gift_code_inventory -- デジタルギフトコード在庫一覧
 ),
 
 ----------------------------------------------------------------------

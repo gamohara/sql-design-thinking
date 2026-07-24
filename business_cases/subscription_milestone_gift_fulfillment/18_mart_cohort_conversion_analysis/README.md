@@ -33,7 +33,7 @@ Understanding the campaign requires two semantically different time axes: cohort
 
 ### 解決策 / Solution
 
-`ordered_year_month_f1`（受注月）を、単なる「コホートの識別子」としてだけでなく、`amazon_pre_month_1st`（実際の配信月）との結合キーとしても再利用します。`ON a.ordered_year_month_f1 = b.gift_present_month_1st` という結合は、「Aさんの受注月とAさんの配信月」を繋いでいるのではなく、「2026年6月に受注した人たちの集計行」に対して「誰の受注かは問わず2026年6月に配信された件数」を横に並べる、YYYYMMを共通の座標軸として使うトリックです。
+`ordered_year_month_f1`（受注月）を、単なる「コホートの識別子」としてだけでなく、`gift_present_month_1st`（実際の配信月）との結合キーとしても再利用します。`ON a.ordered_year_month_f1 = b.gift_present_month_1st` という結合は、「Aさんの受注月とAさんの配信月」を繋いでいるのではなく、「2026年6月に受注した人たちの集計行」に対して「誰の受注かは問わず2026年6月に配信された件数」を横に並べる、YYYYMMを共通の座標軸として使うトリックです。
 
 The join `ON a.ordered_year_month_f1 = b.gift_present_month_1st` does not link an individual customer's order month to their own delivery month — it uses YYYYMM as a shared coordinate axis, attaching "how many gifts went out in June 2026 (regardless of whose cohort)" onto the row representing "customers who ordered in June 2026."
 

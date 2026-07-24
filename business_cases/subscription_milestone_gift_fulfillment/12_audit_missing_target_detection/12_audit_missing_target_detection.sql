@@ -75,7 +75,7 @@ manual_target_list AS (
         END AS time_line
 
     FROM
-        map_gift_target_ledger -- □ 特典_対象者リスト.csv
+        map_gift_target_ledger -- 対象者リスト
 ),
 
 ----------------------------------------------------------------------
@@ -205,7 +205,7 @@ error_past_target_list AS (
     INNER JOIN
         (
             SELECT *
-            FROM map_delivery_hold_ledger -- △ 特典_配信停止リスト.csv
+            FROM map_delivery_hold_ledger -- 配信停止リスト
             WHERE
                 NULLIF(recorded_hash_key, '') IS NOT NULL -- 過去実績があるため、アドレス未登録(NULL)は除外
         ) i
@@ -284,7 +284,7 @@ recovery_status_checker AS (
         combine_all_missing_alerts z -- 06. 漏れアラート統合情報
 
     LEFT JOIN
-        map_delivery_hold_ledger y -- △ 特典_配信停止リスト.csv
+        map_delivery_hold_ledger y -- 配信停止リスト
     ON z.user_id = y.user_id
     AND z.order_id = y.order_id
 )

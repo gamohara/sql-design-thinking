@@ -154,7 +154,7 @@ extract_gift_promo_marker AS (
         user_id,
         1 AS is_bonus_gift_insert_marker
     FROM
-        raw_catalog_gift_markers -- ◇ カタログ/プレゼント同梱物編集
+        raw_catalog_gift_markers -- カタログ/プレゼント同梱物編集
     WHERE
         insert_product_code = 'GIFT_INSERT_CODE_BONUS' -- 明細書への追加特典印字用ダミー商品コード
     GROUP BY
@@ -249,13 +249,13 @@ aggregate_upsell_facts AS (
 
     -- 通常のCSV突合（対象者リストとの紐付け）
     LEFT JOIN
-        map_bonus_gift_manual_targets i -- △ 追加特典_対象者リスト.csv
+        map_bonus_gift_manual_targets i -- 追加特典対象者リスト
     ON e.user_id = i.user_id
     AND e.order_id = i.order_id
 
     -- 特例追加のCSV突合（システム条件外の手動救済用）
     LEFT JOIN
-        map_bonus_gift_manual_targets j -- △ 追加特典_対象者リスト.csv
+        map_bonus_gift_manual_targets j -- 追加特典対象者リスト
     ON e.user_id = j.user_id
     AND e.order_id = j.order_id
     AND j.exception_type = 'IRREGULAR_ADD'

@@ -75,7 +75,7 @@ F1重複購入によるコース変更の検知。
 - `dim_subscription_status` : 現行の定期契約ステータス
 - `raw_catalog_gift_markers` : 同梱物（明細書印字）データ
 - `raw_cs_incident_notes` : CS応対メモ
-- `map_bonus_gift_manual_targets` : 追加特典_対象者リスト.csv
+- `map_bonus_gift_manual_targets` : 追加特典対象者リスト
 
 ---
 

@@ -121,7 +121,7 @@ filter_by_order_level_exceptions AS (
 
     -- 【手動対応】注文単位の削除リストを結合
     LEFT JOIN
-        map_gift_manual_exceptions c -- △ 特典_手動対応リスト.csv
+        map_gift_manual_exceptions c -- 手動対応リスト（注文単位の削除）
     ON a.order_id = c.order_id
     AND c.exception_type = 'DELETE_BY_ORDER'
 

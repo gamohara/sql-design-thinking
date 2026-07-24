@@ -84,7 +84,7 @@ manual_target_list AS (
         END AS time_line
 
     FROM
-        map_gift_target_ledger -- □ 特典_対象者リスト.csv
+        map_gift_target_ledger -- 対象者リスト
 ),
 
 ----------------------------------------------------------------------
@@ -130,7 +130,7 @@ weekday_calendar_master AS (
         weekday_category_name,
         is_holiday
     FROM
-        dim_weekday_calendar -- ◆ 起動タイミング操作_曜日別起動リスト.csv
+        dim_weekday_calendar -- 曜日別稼働カレンダー
 ),
 
 ----------------------------------------------------------------------

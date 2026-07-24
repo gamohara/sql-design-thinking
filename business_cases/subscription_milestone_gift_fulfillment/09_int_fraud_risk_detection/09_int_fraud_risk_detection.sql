@@ -102,7 +102,7 @@ import_base_journey_and_risk_factors AS (
                 product_subsc_ship_category,
                 1 AS has_confirmed_delivery
             FROM
-                map_gift_target_ledger -- □ 特典_対象者リスト.csv
+                map_gift_target_ledger -- 対象者リスト（配信済み実績の確認用）
             WHERE
                 -- すでに配信済みのもの（タイムラインが過去）に絞る
                 DATEDIFF(day, gift_present_date, CONVERT_TIMEZONE('Asia/Tokyo', CURRENT_TIMESTAMP)::DATE) > 0

@@ -167,7 +167,7 @@ agg_and_flag_daily_orders AS (
 
     -- 【手動対応】注文単位の削除リストを結合
     LEFT JOIN
-        map_gift_manual_exceptions d -- △ 特典_手動対応リスト.csv
+        map_gift_manual_exceptions d -- 手動対応リスト（注文単位の削除）
     ON c.order_id = d.order_id
     AND d.exception_type = 'DELETE_BY_ORDER'
 

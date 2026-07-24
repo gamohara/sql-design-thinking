@@ -67,8 +67,8 @@ By rounding the calendar range to whole months and generating a gap-free date se
 - `int_predelivery_alert_check` : 現在・未来の予測対象者（10）
 
 ### Master Tables
-- `map_gift_target_ledger` : 特典_対象者リスト.csv（過去の確定実績）
-- `map_gift_code_inventory` : デジタルギフトコード一覧.csv（総在庫数の算出元）
+- `map_gift_target_ledger` : 対象者リスト（過去の確定実績）
+- `map_gift_code_inventory` : デジタルギフトコード在庫一覧（総在庫数の算出元）
 
 ---
 

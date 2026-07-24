@@ -250,7 +250,7 @@ exclude_recorded_alerts AS (
         integrated_alert_list z -- 05. の情報
 
     LEFT JOIN
-        map_delivery_hold_ledger y -- △ 特典_配信停止リスト.csv
+        map_delivery_hold_ledger y -- 配信停止リスト
     ON z.user_id = y.user_id
     AND z.order_id = y.order_id
 

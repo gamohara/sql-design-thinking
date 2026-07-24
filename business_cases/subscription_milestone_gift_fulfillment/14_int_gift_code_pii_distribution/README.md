@@ -59,7 +59,7 @@ By embedding the timeline restriction inside the `LEFT JOIN`'s `ON` clause rathe
 - `int_email_delivery_status_integration` : 配信ステータス統合済リスト（13）
 
 ### Master Tables
-- `map_gift_code_inventory` : デジタルギフトコード一覧.csv
+- `map_gift_code_inventory` : デジタルギフトコード在庫一覧
 - `dim_customers_pii` : 顧客属性マスタ（個人情報）
 
 ---

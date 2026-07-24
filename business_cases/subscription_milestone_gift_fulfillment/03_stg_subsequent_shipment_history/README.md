@@ -62,7 +62,7 @@ By using the per-customer earliest shipment date as a strict `INNER JOIN` time-s
 - `raw_gift_eligible_purchases` : 特典対象商品ラインの購入明細抽出
 
 ### Master / Reference Tables
-- `map_gift_manual_exceptions` : 特典_手動対応リスト.csv（`exception_type = 'DELETE_BY_ORDER'`）
+- `map_gift_manual_exceptions` : 手動対応リスト（`exception_type = 'DELETE_BY_ORDER'`）
 
 ---
 

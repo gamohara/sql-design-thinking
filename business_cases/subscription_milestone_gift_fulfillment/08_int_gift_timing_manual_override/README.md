@@ -66,7 +66,7 @@ CS担当者アップロードのCSVと基礎日数の計算。
 - `stg_gift_timing_base` : 07の出力に基礎リードタイムを適用した出荷情報（GUIパラメータ層）
 
 ### Master / Reference Tables
-- `map_gift_timing_adjustments` : 特典_配信タイミング変更リスト.csv
+- `map_gift_timing_adjustments` : 配信タイミング変更リスト
 
 ---
 

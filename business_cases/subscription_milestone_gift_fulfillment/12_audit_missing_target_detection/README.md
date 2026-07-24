@@ -66,9 +66,9 @@ By comparing the hold-time snapshot against current status across three independ
 - `int_predelivery_alert_check` : 配信前アラート済リスト（10）
 
 ### Master / Reference Tables
-- `map_gift_target_ledger` : 特典_対象者リスト.csv
+- `map_gift_target_ledger` : 対象者リスト
 - `stg_past_delivery_bounce` : 不達（配信失敗）実績データ
-- `map_delivery_hold_ledger` : 特典_配信停止リスト.csv（保留時点のスナップショットを保持）
+- `map_delivery_hold_ledger` : 配信停止リスト（保留時点のスナップショットを保持）
 
 ---
 

@@ -68,7 +68,7 @@ By recording the target order number (`order_no + 1`) alongside each detected ab
 - `int_gift_timing_manual_override` : 配信タイミング調整済ジャーニー（08）
 
 ### Master / Reference Tables
-- `map_gift_target_ledger` : 特典_対象者リスト.csv（配信済み実績の確認用）
+- `map_gift_target_ledger` : 対象者リスト（配信済み実績の確認用）
 - `dim_subscription_status` : 現行の定期契約ステータス
 - `raw_cs_incident_notes` : CS応対メモ
 

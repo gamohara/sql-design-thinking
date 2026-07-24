@@ -65,7 +65,7 @@ By separating order-level exception handling into its own query and surfacing du
 - `stg_gift_eligible_purchase_base` : 前工程（01）の出力
 
 ### Master / Reference Tables
-- `map_gift_manual_exceptions` : 特典_手動対応リスト.csv（`exception_type = 'DELETE_BY_ORDER'` のみ評価）
+- `map_gift_manual_exceptions` : 手動対応リスト（`exception_type = 'DELETE_BY_ORDER'` のみ評価）
 
 ---
 

@@ -169,7 +169,7 @@ filter_by_user_level_exceptions AS (
 
     -- 【手動対応】ユーザー単位の削除・追加リストを結合
     LEFT JOIN
-        map_gift_manual_exceptions b -- △ 特典_手動対応リスト.csv
+        map_gift_manual_exceptions b -- 手動対応リスト（ユーザー単位の削除／特例追加）
     ON a.user_id = b.user_id
     AND b.exception_type IN ('DELETE_BY_USER', 'ADD_IRREGULAR')
 
@@ -199,7 +199,7 @@ add_evaluation_flags AS (
                 user_id,
                 1 AS has_dm_gift_history
             FROM
-                raw_dm_history -- W2_DM送付履歴
+                raw_dm_history -- レガシーDM配信システム連携履歴
             WHERE
                 dm_code = 'GIFT_DM_CODE' -- （DM発送なし）ギフト特典プレゼント対象者
             GROUP BY
@@ -215,7 +215,7 @@ add_evaluation_flags AS (
                 order_id,
                 1 AS has_insert_gift_marker
             FROM
-                raw_catalog_gift_markers -- ◇【全購入TB】カタログ/プレゼント同梱物編集
+                raw_catalog_gift_markers -- 全購入データにおけるカタログ/プレゼント同梱物編集
             WHERE
                 insert_product_code IN ('GIFT_INSERT_CODE_1', 'GIFT_INSERT_CODE_2') -- 明細書へのギフト特典印字用ダミー商品
             GROUP BY

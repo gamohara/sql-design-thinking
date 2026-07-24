@@ -148,7 +148,7 @@ mail_delivery_csv AS (
             CASE WHEN delivery_status = '配信失敗' THEN 1 ELSE 0 END AS is_csv_failed,
             CASE WHEN delivery_status = '未配信'   THEN 1 ELSE 0 END AS is_csv_not_sent
         FROM
-            map_email_delivery_log -- △ 特典_メール配信リスト.csv
+            map_email_delivery_log -- メール配信ログ
         )
 
     GROUP BY
@@ -179,7 +179,7 @@ mail_resend_history_csv AS (
             CASE WHEN resend_status = '済'   THEN 1 ELSE 0 END AS is_resend_success,
             CASE WHEN resend_status = '不達' THEN 1 ELSE 0 END AS is_resend_failed
         FROM
-            map_email_resend_log -- △ 特典_メール再配信リスト.csv
+            map_email_resend_log -- メール再配信ログ
         )
 
     GROUP BY

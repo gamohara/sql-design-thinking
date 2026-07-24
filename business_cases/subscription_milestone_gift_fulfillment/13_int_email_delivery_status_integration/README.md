@@ -65,8 +65,8 @@ MAツールログ、運用CSV、再配信リストの取得。
 
 ### Master / Reference Tables
 - `raw_mail_activity_log` : MAツールのメール行動ログ
-- `map_email_delivery_log` : 特典_メール配信リスト.csv
-- `map_email_resend_log` : 特典_メール再配信リスト.csv
+- `map_email_delivery_log` : メール配信ログ
+- `map_email_resend_log` : メール再配信ログ
 
 ---
 

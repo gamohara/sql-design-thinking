@@ -79,7 +79,7 @@ alert_f2_to_f4_returns AS (
             WHEN is_high_risk = 1
              AND DATEDIFF(day, digital_gift_present_date, return_completed_date) > 0 THEN '悪質'
             WHEN return_check LIKE '%返品の可能性%'
-             THEN '▲返品依頼あり（プレ予定日：' || TO_CHAR(digital_gift_present_date, 'MM/DD') || '）？'
+             THEN '返品依頼あり（プレ予定日：' || TO_CHAR(digital_gift_present_date, 'MM/DD') || '）？'
             ELSE NULL
         END AS check_detail,
 
@@ -315,7 +315,7 @@ mute_whitelisted_alerts AS (
         combine_all_alerts z -- 08. の情報
 
     LEFT JOIN
-        map_gift_manual_exceptions y -- △ 特典_手動対応リスト.csv
+        map_gift_manual_exceptions y -- 手動対応リスト
     ON z.order_id = y.order_id
     AND y.exception_type = 'PERSIST_BY_ORDER'
 )

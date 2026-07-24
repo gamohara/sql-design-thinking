@@ -68,8 +68,8 @@ By freezing current-timeline changes on holidays (per an external weekday calend
 - `int_predelivery_alert_check` : 配信前アラート済リスト（10）
 
 ### Master / Reference Tables
-- `map_gift_target_ledger` : 特典_対象者リスト.csv
-- `dim_weekday_calendar` : 曜日別起動リスト.csv
+- `map_gift_target_ledger` : 対象者リスト
+- `dim_weekday_calendar` : 曜日別稼働カレンダー
 
 ---
 

@@ -96,7 +96,7 @@ daily_targetlist_build AS (
             ELSE digital_gift_present_date
         END AS digital_gift_present_date
     FROM
-        map_gift_target_ledger -- □ 特典_対象者リスト.csv
+        map_gift_target_ledger -- 対象者リスト
     WHERE
         DATEDIFF(day, digital_gift_present_date, CONVERT_TIMEZONE('Asia/Tokyo', CURRENT_TIMESTAMP)::DATE) > 0
 ),
@@ -192,7 +192,7 @@ calc_cumulative_and_stock AS (
     CROSS JOIN
         (
             SELECT COUNT(digital_gift_code) AS all_present_count
-            FROM map_gift_code_inventory -- デジタルギフトコード一覧.csv
+            FROM map_gift_code_inventory -- デジタルギフトコード在庫一覧
         ) d
 ),
 

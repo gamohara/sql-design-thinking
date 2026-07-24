@@ -69,7 +69,7 @@ DM履歴・同梱物印字マスタとの結合による対象者ファクトの
 - `raw_gift_eligible_purchases` : 特典対象商品ラインの購入明細抽出（GUIパラメータ層で事前絞込済み）
 
 ### Master / Reference Tables
-- `map_gift_manual_exceptions` : 特典_手動対応リスト.csv（ユーザー単位・注文単位の削除／特例追加）
+- `map_gift_manual_exceptions` : 手動対応リスト（ユーザー単位・注文単位の削除／特例追加）
 - `raw_dm_history` : 過去のDM送付履歴
 - `raw_catalog_gift_markers` : 同梱物（明細書印字）データ
 

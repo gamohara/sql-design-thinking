@@ -66,7 +66,7 @@ By persisting a snapshot of the hold-time state and muting already-recorded or a
 - `stg_past_delivery_bounce` : 過去の配信失敗（不達）実績データ
 
 ### Master Tables
-- `map_delivery_hold_ledger` : 特典_配信停止リスト.csv
+- `map_delivery_hold_ledger` : 配信停止リスト
 
 ---
 

@@ -75,7 +75,7 @@ New check rules can be added by creating a new `alert_xxx` CTE and appending it 
 - `audit_missing_target_detection` : 回復検知チェック元（12）
 
 ### Master Tables
-- `map_gift_manual_exceptions` : 特典_手動対応リスト.csv（`exception_type = 'PERSIST_BY_ORDER'`）
+- `map_gift_manual_exceptions` : 手動対応リスト（`exception_type = 'PERSIST_BY_ORDER'`）
 
 ---
 

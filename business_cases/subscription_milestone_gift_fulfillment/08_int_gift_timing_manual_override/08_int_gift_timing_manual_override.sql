@@ -102,7 +102,7 @@ csv_timing_adjust_list AS (
         DATEDIFF(day, ship_date, digital_gift_present_date)                                            AS days_from_ship_to_gift_email
 
     FROM
-        map_gift_timing_adjustments -- △ 特典_配信タイミング変更リスト.csv
+        map_gift_timing_adjustments -- 配信タイミング変更リスト
 ),
 
 ----------------------------------------------------------------------
