@@ -37,9 +37,9 @@ Handling user-level and order-level exceptions in the same query risks data-grai
 前工程（01）でユーザー単位の除外・追加を完了させ、本クエリでは純粋に「注文単位の除外」のみを適用します。
 
 **【重複の可視化】**
-ウィンドウ関数（`COUNT() OVER`, `LISTAGG() OVER`）を用いて、同一ユーザー内の対象注文数と全注文IDの一覧を各行に付与。重複がある場合は「重複チェック」カラムに商品ラインの組み合わせも含めて可視化し、運用担当者が判断できるようにしています。
+ウィンドウ関数（`COUNT() OVER`, `LISTAGG() OVER`）を用いて、同一ユーザー内の対象注文数と全注文IDの一覧を各行に付与。重複がある場合は「重複チェック」カラムに商品ラインの組み合わせも含めて可視化します。この情報自体は判断材料の提示に留まり、実際の「1人1回」ルールの適用（どの注文を正規のF1として採用するか）は後続の [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/) で自動的に解決されます。
 
-By separating order-level exception handling into its own query and surfacing duplicate purchases via window functions, the design avoids grain-mixing bugs and gives operators the evidence needed to resolve ambiguous cases.
+By separating order-level exception handling into its own query and surfacing duplicate purchases via window functions, the design avoids grain-mixing bugs. The visibility here is informational; the actual "one person, one gift" adjudication (which order counts as the true F1) is resolved automatically downstream in [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/).
 
 ---
 
@@ -72,7 +72,7 @@ By separating order-level exception handling into its own query and surfacing du
 ## データ品質チェック / Data Quality Strategy
 
 ### Duplicate Purchase Detection
-`重複チェック_大分類`・`_中分類`・`_詳細_注文ID` の3段階のカラムにより、重複購入の有無・組み合わせ・対象注文IDを一目で確認できます。これは後続クエリで「1人1回」ルールを適用する際の重要な判断材料です。
+`重複チェック_大分類`・`_中分類`・`_詳細_注文ID` の3段階のカラムにより、重複購入の有無・組み合わせ・対象注文IDを一目で確認できます。「1人1回」ルールの実際の適用（最も早い注文IDを正規のF1として採用する処理）は、後続の [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/) の `MIN(order_id)` 結合で解決されています。ここで可視化した重複情報は、その採用結果を運用担当者が事後に検証するための根拠として使われます。
 
 ---
 

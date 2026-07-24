@@ -33,9 +33,9 @@ Gift eligibility depends on tracking continued shipments after F1. System errors
 
 ### 解決策 / Solution
 
-顧客ごとの最古出荷日（F1）を`INNER JOIN`の時系列条件（`ship_date > ship_date_f1`）として使うことで、厳密に「F1より後」のデータのみを抽出します。さらに `COUNT() OVER` と `LISTAGG() OVER` を用いて同日複数出荷を検知し、警告フラグと対象注文IDの一覧を付与することで、後続処理が安全にこの回数をどう扱うか判断できるようにしています。
+顧客ごとの最古出荷日（F1）を`INNER JOIN`の時系列条件（`ship_date > ship_date_f1`）として使うことで、厳密に「F1より後」のデータのみを抽出します。さらに `COUNT() OVER` と `LISTAGG() OVER` を用いて同日複数出荷を検知し、警告フラグと対象注文IDの一覧を付与することで、この回数の扱いを後続の [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/) に安全に引き渡せるようにしています（同ファイルで「1回として合算」する方式に解決済みです）。
 
-By using the per-customer earliest shipment date as a strict `INNER JOIN` time-series filter, only genuinely post-F1 records are extracted. Same-day multiple shipments are then surfaced via window functions as an explicit warning rather than silently merged.
+By using the per-customer earliest shipment date as a strict `INNER JOIN` time-series filter, only genuinely post-F1 records are extracted. Same-day multiple shipments are then surfaced via window functions as an explicit warning, safely handed off to [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/), which resolves them by consolidating into a single representative order.
 
 ---
 
@@ -75,4 +75,4 @@ By using the per-customer earliest shipment date as a strict `INNER JOIN` time-s
 ## 運用と保守 / Operations & Maintenance
 
 ### 同日出荷アラートの活用
-`同日出荷チェック_大分類` にフラグが立っている場合、同日に別々の注文として商品が出荷されていることを意味します。後続処理でこの回数をどうカウントするか（1回として合算するか、注意喚起のみとするか）は業務ルールの判断が必要です。
+`同日出荷チェック_大分類` にフラグが立っている場合、同日に別々の注文として商品が出荷されていることを意味します。この回数の扱い（1回として合算するか、注意喚起のみとするか）は、後続の [05_int_customer_gift_journey_timeline](../05_int_customer_gift_journey_timeline/) で、返品状況を踏まえた代表注文の特定・属性伝播により「1回として合算」する方式で解決されています。
