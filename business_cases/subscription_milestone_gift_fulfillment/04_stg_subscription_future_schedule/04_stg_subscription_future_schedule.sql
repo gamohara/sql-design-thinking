@@ -51,7 +51,7 @@
 
 【実行環境 / Execution Environment】
 ----------------------------------------------------------------------------------------------
-  Standard SQL (BigQuery / Snowflake / Redshift compatible)
+  Standard SQL (Snowflake compatible: window functions, UNION ALL)
 
 【出力データ / Output Dataset】
 ----------------------------------------------------------------------------------------------

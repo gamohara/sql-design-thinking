@@ -59,7 +59,7 @@ This query consists of the following processing layers.
 
 【実行環境 / Execution Environment】
 ----------------------------------------------------------------------------------------------
-  Standard SQL (BigQuery / Snowflake / Redshift compatible)
+  Standard SQL (Snowflake compatible: DENSE_RANK, DATEADD, window functions)
 
 【出力データ / Output Dataset】
 ----------------------------------------------------------------------------------------------

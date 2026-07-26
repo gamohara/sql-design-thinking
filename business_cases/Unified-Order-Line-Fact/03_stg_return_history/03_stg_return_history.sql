@@ -38,7 +38,7 @@
 
 【実行環境 / Execution Environment】
 ----------------------------------------------------------------------------------------------
-  Standard SQL (BigQuery / Snowflake / Redshift compatible)
+  Standard SQL (Snowflake compatible: REGEXP_LIKE)
 ==============================================================================================
 */
 

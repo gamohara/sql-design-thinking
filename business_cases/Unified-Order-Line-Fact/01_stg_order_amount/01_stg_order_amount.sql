@@ -96,17 +96,7 @@ user_id × order_id × line_no
 
 【実行環境 / Execution Environment】
 ----------------------------------------------------------------------------------------------
-本SQLは以下の分析系データベースを想定して設計されている。
-・Snowflake  
-・BigQuery  
-・Redshift  
-・PostgreSQL
-
-This SQL is designed for modern analytical databases such as:
-・Snowflake  
-・BigQuery  
-・Amazon Redshift  
-・PostgreSQL  
+  Standard SQL (Snowflake compatible: window functions, LAG)
 
 【エラーコード定義 / Error Code Definition】
 ----------------------------------------------------------------------------------------------
