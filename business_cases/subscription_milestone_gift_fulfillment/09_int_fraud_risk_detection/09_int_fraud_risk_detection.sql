@@ -154,14 +154,14 @@ extract_expected_returns_from_incident AS (
             (
                 (
                     incident_category_code IN (
-                        '033', -- 処理依頼／返品・返金
-                        '071', -- 処理依頼／請求額・決済種別変更
-                        '072', -- 処理依頼／運送会社指示
-                        '074', -- 処理依頼／退会・登録抹消
-                        '076', -- 処理依頼／決済関連
-                        '080', -- 処理依頼／未来の住所変更
-                        '081', -- 処理依頼／その他
-                        '091'  -- 処理依頼／顧客返品以外
+                        'RETURN_REFUND_REQUEST',          -- 処理依頼／返品・返金
+                        'BILLING_PAYMENT_CHANGE_REQUEST',  -- 処理依頼／請求額・決済種別変更
+                        'CARRIER_INSTRUCTION_REQUEST',     -- 処理依頼／運送会社指示
+                        'WITHDRAWAL_REQUEST',              -- 処理依頼／退会・登録抹消
+                        'PAYMENT_RELATED_REQUEST',         -- 処理依頼／決済関連
+                        'FUTURE_ADDRESS_CHANGE_REQUEST',   -- 処理依頼／未来の住所変更
+                        'OTHER_REQUEST',                   -- 処理依頼／その他
+                        'NON_RETURN_REQUEST'               -- 処理依頼／顧客返品以外
                     )
                     OR incident_memo LIKE '%返品%'
                     OR incident_memo LIKE '%返送%'

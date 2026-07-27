@@ -174,7 +174,7 @@ extract_outbound_call_history AS (
     FROM
         raw_cs_incident_notes -- CS応対履歴（応対メモ）
     WHERE
-        incident_category_code = '085' -- 応対メモにて「アウトバウンド/注文あり」のカテゴリ登録あり
+        incident_category_code = 'OUTBOUND_UPSELL' -- 応対メモにて「アウトバウンド/注文あり」のカテゴリ登録あり
     GROUP BY
         user_id
 ),
