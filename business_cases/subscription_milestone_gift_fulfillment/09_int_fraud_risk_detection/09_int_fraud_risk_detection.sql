@@ -147,7 +147,7 @@ extract_expected_returns_from_incident AS (
         1                            AS is_return_expected
 
     FROM
-        raw_cs_incident_notes -- 【応対TB】応対詳細
+        raw_cs_incident_notes -- CS応対履歴（応対メモ）
 
     WHERE
         (

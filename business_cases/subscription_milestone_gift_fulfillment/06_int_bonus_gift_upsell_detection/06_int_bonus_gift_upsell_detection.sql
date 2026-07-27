@@ -172,7 +172,7 @@ extract_outbound_call_history AS (
         MAX(message_date)    AS message_date,
         1                     AS has_outbound_call_note
     FROM
-        raw_cs_incident_notes -- 【応対TB】応対詳細
+        raw_cs_incident_notes -- CS応対履歴（応対メモ）
     WHERE
         incident_category_code = '085' -- 応対メモにて「アウトバウンド/注文あり」のカテゴリ登録あり
     GROUP BY
@@ -277,10 +277,10 @@ SELECT
 
     -- ※運用ルールの歴史的変遷に合わせて、F2出荷日からの加算日数を動的に変更
     CASE
-        WHEN ship_date BETWEEN '2024-08-01' AND '2025-06-26' THEN DATEADD(day, 7, ship_date)
-        WHEN ship_date BETWEEN '2025-06-27' AND '2025-10-09' THEN DATEADD(day, 12, ship_date)
-        WHEN ship_date BETWEEN '2025-10-10' AND '2026-07-05' THEN DATEADD(day, 15, ship_date)
-        WHEN ship_date >= '2026-07-06' THEN DATEADD(day, 30, ship_date)
+        WHEN ship_date BETWEEN '2024-01-01' AND '2024-11-30' THEN DATEADD(day, 7, ship_date)
+        WHEN ship_date BETWEEN '2024-12-01' AND '2025-03-15' THEN DATEADD(day, 12, ship_date)
+        WHEN ship_date BETWEEN '2025-03-16' AND '2025-12-10' THEN DATEADD(day, 15, ship_date)
+        WHEN ship_date >= '2025-12-11' THEN DATEADD(day, 30, ship_date)
         ELSE NULL
     END AS "追加特典日_デジタルギフト",
 
