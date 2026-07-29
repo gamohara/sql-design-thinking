@@ -105,7 +105,7 @@ customer_pii_master AS (
         user_id,
         email,
         is_null_email,
-        LOWER(TRIM(email)) || user_id AS hash_key_source -- ハッシュ化キーの生成関係（安全対策のため"ソルト"を加える）
+        LOWER(TRIM(email)) || user_id AS hash_key_source -- ハッシュ化キーの生成関係（安全対策のため、顧客ごとに異なるソルトを加える）
     FROM
         dim_customers_pii -- 【顧客マスタ】個人情報あり
 ),
