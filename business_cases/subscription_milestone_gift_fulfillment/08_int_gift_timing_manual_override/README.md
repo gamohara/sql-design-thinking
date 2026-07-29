@@ -13,9 +13,9 @@ Example SQL implementing a fairness-preserving algorithm that shortens a custome
 
 ## データパイプライン内の位置 / Architecture Position
 
-[07_int_journey_return_adjustment](../07_int_journey_return_adjustment/) の出力に、GUI（BIツール）パラメータ層で基礎リードタイム（7/12/15/30日、運用期間に応じて変動）を適用した `stg_gift_timing_base` を入力とします。
+[07_int_journey_return_adjustment](../07_int_journey_return_adjustment/) の出力に、GUI（BIツール）パラメータ層で、運用期間に応じて段階的に変動する基礎リードタイムを適用した `stg_gift_timing_base` を入力とします。
 
-Takes as input `stg_gift_timing_base`, a GUI/BI-tool parameter layer that applies the base lead time (7/12/15/30 days, varying by operational period) to the output of [07_int_journey_return_adjustment](../07_int_journey_return_adjustment/).
+Takes as input `stg_gift_timing_base`, a GUI/BI-tool parameter layer that applies a base lead time — one that steps up in stages depending on the operational period — to the output of [07_int_journey_return_adjustment](../07_int_journey_return_adjustment/).
 
 リポジトリ全体のアーキテクチャは [トップレベルREADME](../../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
 
