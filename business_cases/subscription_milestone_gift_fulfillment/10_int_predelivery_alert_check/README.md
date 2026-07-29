@@ -36,9 +36,9 @@ Checking for unpaid/delayed shipments only on the gift date itself fails on week
 特典予定日ではなく「出荷日から10日以上経過しているか」を判定基準にすることで、付与日の数日前（平日）の時点で未入金・出荷遅延をあらかじめ検知し、休日中の採番ズレ事故を未然に防ぎます。
 
 **【セキュアなハッシュキー】**
-メールアドレスを顧客ごとに異なるソルト値で補強した上でSHA256ハッシュ化し、生の個人情報を出力せずに「アドレスが変更されたか」を安全に差分検知できるようにしています。
+メールアドレスを顧客ごとに一意なソルト値で補強した上でSHA256ハッシュ化し、生の個人情報を出力せずに「アドレスが変更されたか」を安全に差分検知できるようにしています。ソルト生成部分は `generate_customer_salt()` という擬似的な関数として表現しており、実際のソルト生成ロジックはセキュリティ上の理由から非公開です。
 
-Basing the precheck on shipment date (not gift date) catches issues on weekdays before any weekend freeze. Salting the email address with a per-customer value before hashing (SHA256) enables secure change detection without ever exposing raw PII downstream.
+Basing the precheck on shipment date (not gift date) catches issues on weekdays before any weekend freeze. Salting the email address with a per-customer unique value before hashing (SHA256) enables secure change detection without ever exposing raw PII downstream. The salt-generation step is represented here as a placeholder function, `generate_customer_salt()`; the actual salt-generation logic is not disclosed for security reasons.
 
 ---
 

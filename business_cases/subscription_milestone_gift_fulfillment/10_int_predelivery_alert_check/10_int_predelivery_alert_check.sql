@@ -105,7 +105,8 @@ customer_pii_master AS (
         user_id,
         email,
         is_null_email,
-        LOWER(TRIM(email)) || user_id AS hash_key_source -- ハッシュ化キーの生成関係（安全対策のため、顧客ごとに異なるソルトを加える）
+        -- generate_customer_salt() はソルト生成ロジックの概念を示すための擬似的な関数であり、実際の実装は非公開
+        LOWER(TRIM(email)) || generate_customer_salt(user_id) AS hash_key_source -- ハッシュ化キーの生成関係（安全対策のため、顧客ごとに一意なソルトを加える）
     FROM
         dim_customers_pii -- 【顧客マスタ】個人情報あり
 ),
