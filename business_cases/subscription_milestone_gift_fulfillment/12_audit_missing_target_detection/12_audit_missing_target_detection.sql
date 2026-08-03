@@ -193,7 +193,7 @@ error_past_target_list AS (
             SELECT e.*
             FROM manual_target_list e
             INNER JOIN
-                stg_past_delivery_bounce f -- 【GUIパラメータ層】不達_過去
+                stg_past_delivery_bounce f -- 【GUIパラメータ層】配信試行後にメール不達となった実績データ（配信前除外とは異なる）
             ON e.user_id = f.user_id
             AND e.product_subsc_ship_category = f.product_subsc_ship_category
             WHERE

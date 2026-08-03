@@ -188,7 +188,7 @@ past_delivery_failed_alert_list AS (
         int_predelivery_alert_check a -- 【前工程】10_int_predelivery_alert_check
 
     INNER JOIN
-        stg_past_delivery_bounce b -- 【GUIパラメータ層】不達_過去
+        stg_past_delivery_bounce b -- 【GUIパラメータ層】配信試行後にメール不達となった実績データ（配信前除外とは異なる）
     ON a.user_id = b.user_id
     AND a.product_subsc_ship_category = b.product_subsc_ship_category
 

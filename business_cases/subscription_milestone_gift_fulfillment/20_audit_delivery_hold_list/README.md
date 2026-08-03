@@ -63,7 +63,7 @@ By persisting a snapshot of the hold-time state and muting already-recorded or a
 ### Intermediate Tables
 - `int_predelivery_alert_check` : 配信前アラート済リスト（10）
 - `int_gift_code_pii_distribution` : 配信実績（14）
-- `stg_past_delivery_bounce` : 過去の配信失敗（不達）実績データ
+- `stg_past_delivery_bounce` : 過去に配信を試みた後、不達となった実績データ（配信前の事前チェックによる除外とは異なる）
 
 ### Master Tables
 - `map_delivery_hold_ledger` : 配信停止リスト
