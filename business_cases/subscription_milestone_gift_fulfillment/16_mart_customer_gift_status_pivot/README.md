@@ -78,3 +78,8 @@ F1対象者とコース区分の取得。
 
 ### メール未登録フラグのフェイルセーフ
 `is_null_email`（メール未登録フラグ_現在）は、顧客マスタにデータが存在しない（システム統合等で消えた）場合、安全のため強制的に「1（未登録）」を返すフェイルセーフ仕様です。
+
+### `email_issue_remarks` の由来について
+`15_mart_delivery_status_summary` の `excluded_email_error_targets` CTE内で `email_issue_remarks` として参照している列は、上流の `10_int_predelivery_alert_check` が最終出力で「顧客情報登録チェック」という日本語カラム名で出力している値と同じものです（本リポジトリの慣習として、日本語エイリアスのみの出力を下流で参照する際は、意味に基づいた英語名を付与しています）。16番の `remarks` および `remarks_with_date` も、この値を最終的に受け継いだものです。
+
+The `email_issue_remarks` column referenced inside `15_mart_delivery_status_summary`'s `excluded_email_error_targets` CTE is the same value that upstream `10_int_predelivery_alert_check` exposes in its final output under the Japanese-only alias "顧客情報登録チェック" (customer-info registration check). Per this repository's convention, when a downstream query references a column whose only exposed name is a Japanese alias, we invent a meaning-based English name for it. This case's `remarks` and `remarks_with_date` ultimately inherit that same value.

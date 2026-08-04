@@ -61,6 +61,8 @@ pivot_present_status_by_timing AS (
         present_timing_char,
         digital_gift_present_date,
 
+        -- 予定日プレフィックス付きの備考テキストを生成
+        -- （例:「26-08-02: メールアドレス_未登録」「26-07-10: メールアドレス_配信失敗」）
         TO_CHAR(digital_gift_present_date, 'YY-MM-DD') || ': ' || remarks AS remarks_with_date,
 
         MAX(CASE WHEN present_timing_char = '1回目' THEN digital_gift_present_date ELSE NULL END) OVER(PARTITION BY user_id) AS gift_present_date_1st,
