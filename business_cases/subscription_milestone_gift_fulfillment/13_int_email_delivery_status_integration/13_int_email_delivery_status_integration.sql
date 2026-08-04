@@ -141,12 +141,15 @@ mail_delivery_csv AS (
 
     FROM
         (
+        -- 【表記の正規化】外部システム（配信ログ・再配信ログ）側の用語表記は、
+        -- このクエリ内部で使う標準化されたステータス名（配信成功/配信失敗/未配信）
+        -- とは異なる。ここで両者を対応付け、外部の表記ゆれを吸収している。
         SELECT
             user_id,
             email_sent_date,
-            CASE WHEN delivery_status = '配信済み' THEN 1 ELSE 0 END AS is_csv_sent,
-            CASE WHEN delivery_status = '配信失敗' THEN 1 ELSE 0 END AS is_csv_failed,
-            CASE WHEN delivery_status = '未配信'   THEN 1 ELSE 0 END AS is_csv_not_sent
+            CASE WHEN delivery_status = '配信済' THEN 1 ELSE 0 END AS is_csv_sent,
+            CASE WHEN delivery_status = '配信不達' THEN 1 ELSE 0 END AS is_csv_failed,
+            CASE WHEN delivery_status = '配信エラー' THEN 1 ELSE 0 END AS is_csv_not_sent
         FROM
             map_email_delivery_log -- メール配信ログ
         )
@@ -171,12 +174,15 @@ mail_resend_history_csv AS (
 
     FROM
         (
+        -- 【表記の正規化】外部システム（配信ログ・再配信ログ）側の用語表記は、
+        -- このクエリ内部で使う標準化されたステータス名（配信成功/配信失敗/未配信）
+        -- とは異なる。ここで両者を対応付け、外部の表記ゆれを吸収している。
         SELECT
             user_id,
             product_subsc_ship_category,
             resend_date,
             resend_type,
-            CASE WHEN resend_status = '済'   THEN 1 ELSE 0 END AS is_resend_success,
+            CASE WHEN resend_status = '到達' THEN 1 ELSE 0 END AS is_resend_success,
             CASE WHEN resend_status = '不達' THEN 1 ELSE 0 END AS is_resend_failed
         FROM
             map_email_resend_log -- メール再配信ログ
@@ -193,12 +199,13 @@ mail_resend_history_csv AS (
 integrated_resend_status AS (
     SELECT
         e.user_id, e.product_subsc_ship_category, e.resend_date, e.resend_date_char,
-        e.resend_type, e.is_resend_success, e.is_resend_failed,
+        e.resend_type, -- 配信方法を記載（「再配信」「別システムで配信」など）
+        e.is_resend_success, e.is_resend_failed,
 
         CASE
-            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) = 1  THEN '再配信成功 → 開封済'
-            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) <> 1 THEN '再配信成功'
-            WHEN e.is_resend_failed = 1  THEN '再配信失敗'
+            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) = 1  THEN '成功 → 開封済'
+            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) <> 1 THEN '成功'
+            WHEN e.is_resend_failed = 1  THEN '失敗'
             ELSE NULL
         END AS resend_status_text
 
@@ -244,7 +251,7 @@ integrate_mail_status AS (
              AND COALESCE(csv.is_csv_failed, 0) = 1 THEN sys.sys_send_status
 
             WHEN NULLIF(sys.sys_send_status, '') IS NULL AND NULLIF(csv.csv_send_status, '') IS NULL
-             AND NULLIF(a.email_send_status_manu, '') IS NOT NULL AND a.time_line = '過去' THEN '不達'
+             AND NULLIF(a.email_send_status_manu, '') IS NOT NULL AND a.time_line = '過去' THEN '配信失敗'
             WHEN NULLIF(sys.sys_send_status, '') IS NULL AND NULLIF(csv.csv_send_status, '') IS NULL
              AND NULLIF(a.email_send_status_manu, '') IS NULL AND a.time_line = '過去'     THEN '未配信'
             WHEN NULLIF(sys.sys_send_status, '') IS NULL AND NULLIF(csv.csv_send_status, '') IS NULL
@@ -253,6 +260,7 @@ integrate_mail_status AS (
             ELSE NULL
         END AS email_send_status,
 
+        -- 再配信した場合のステータス情報を組み立て（例. 26-08-04: 再配信成功）
         COALESCE(re.resend_date_char, '') ||
             COALESCE(re.resend_type, '') ||
                 COALESCE(re.resend_status_text, '') AS email_re_send_status
@@ -306,9 +314,9 @@ SELECT
          AND (
                 CASE
                     WHEN email_send_status LIKE '%配信成功%'
-                      OR email_re_send_status LIKE '%再配信成功%'       THEN '済'
-                    WHEN email_send_status = '配信失敗'                 THEN '不達'
-                    WHEN email_send_status = '未配信'                   THEN NULL
+                      OR email_re_send_status LIKE '%配信成功%'  THEN '配信成功'
+                    WHEN email_send_status = '配信失敗'          THEN '配信失敗'
+                    WHEN email_send_status = '未配信'            THEN NULL
                     ELSE email_send_status
                 END
              ) <> NULLIF(email_send_status_manu, '')

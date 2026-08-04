@@ -1,6 +1,6 @@
 # 概要 / Overview
 
-特典配布対象者の「正常配信ステータス（配信成功・不達等）」と、配信前に除外された「エラー保留ステータス」を統合し、外部システムや管理台帳にそのまま貼り付けて顧客情報を一括更新するための「最終ステータス更新リスト」を作成するSQLの設計例です。
+特典配布対象者の「正常配信ステータス（配信成功・配信失敗等）」と、配信前に除外された「エラー保留ステータス」を統合し、外部システムや管理台帳にそのまま貼り付けて顧客情報を一括更新するための「最終ステータス更新リスト」を作成するSQLの設計例です。
 
 以下の設計思想を含みます。
 - 「最終的に届いたか」を基準にしたエラー判定思想（途中経過ではなく費用発生の有無で判定）
@@ -36,7 +36,7 @@ Defining errors purely by intermediate outcomes (e.g., an initial send failure) 
 エラーフラグを「最終的に顧客へギフトが届いたか」という事実だけで判定します。
 - メール不備による事前除外者（`gift_seq_no = 999999999`）は無条件でエラー
 - 「未配信」（未来の予定）はエラーに含めない（未確定とエラーを分離）
-- 初回が不達でも再配信で成功していればエラー扱いしない
+- 初回が配信失敗でも再配信で成功していればエラー扱いしない
 
 By anchoring the error definition strictly to final delivery outcome — not intermediate steps — the flag remains an accurate cost/ROI signal for downstream forecasting.
 

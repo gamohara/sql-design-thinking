@@ -65,7 +65,7 @@ extract_confirmed_target_list AS (
         NULLIF(serial_number, '') AS serial_number, time_line,
 
         CASE WHEN order_status = '配達完了' THEN 1 ELSE 0 END AS is_dlv_comp,
-        CASE WHEN email_send_status LIKE '%配信成功%' THEN 1 ELSE 0 END AS is_email_send
+        CASE WHEN email_send_status LIKE '%配信成功%' OR email_re_send_status LIKE '%配信成功%' THEN 1 ELSE 0 END AS is_email_send
 
     FROM
         int_email_delivery_status_integration -- 【前工程】13_int_email_delivery_status_integration
@@ -157,7 +157,7 @@ SELECT
     email                                AS "メールアドレス_対象者",
 
     is_dlv_comp                         AS "配達完了_フラグ",
-    is_email_send                       AS "メール配信済み_フラグ",
+    is_email_send                       AS "メール配信成功_フラグ",
     is_null_email                       AS "メールアドレス未登録_フラグ",
 
     CASE

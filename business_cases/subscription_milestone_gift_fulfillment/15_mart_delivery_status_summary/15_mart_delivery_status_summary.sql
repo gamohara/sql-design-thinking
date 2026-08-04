@@ -7,7 +7,7 @@
 
 【業務ロジック / Business Logic】
 ----------------------------------------------------------------------------------------------
-  特典配布対象者の「正常配信ステータス（配信済・不達等）」と、配信前に除外された「エラー
+  特典配布対象者の「正常配信ステータス（配信成功・配信失敗等）」と、配信前に除外された「エラー
   保留ステータス」を統合し、外部システムや管理台帳にそのまま貼り付けて顧客情報を一括更新
   するための「最終ステータス更新リスト」を作成する。
 
@@ -16,7 +16,7 @@
   事実（＝費用発生の有無）を基準に判定する。
     ・メール不備による事前除外者（gift_seq_no = 999999999）は、無条件でエラーと判定する。
     ・「未配信」は未来の配信予定を意味するため、エラーには含めない（未確定とエラーの分離）。
-    ・初回配信が不達等であっても「再配信」で救済され届いた場合は、エラー扱いしない。
+    ・初回配信が配信失敗等であっても「再配信」で救済され届いた場合は、エラー扱いしない。
   このフラグは運用上のエラー監視に加え、費用予測システムにおける「メアド未登録率・配信
   エラー率」算出の分子としても使用される。
 
@@ -63,7 +63,7 @@ WITH
 ----------------------------------------------------------------------
 excluded_email_error_targets AS (
     SELECT
-        999999999                    AS gift_seq_no, -- エラー者をリスト下部にまとめるためのダミーNo
+        999999999                    AS gift_seq_no, -- 除外対象者をリスト下部にまとめるためのダミーNo
         a.user_id,
         a.digital_gift_present_date,
         CAST(NULL AS DATE)           AS actual_present_date,
@@ -84,7 +84,7 @@ excluded_email_error_targets AS (
 
         CASE WHEN a.is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
-        '配信エラー' AS email_send_status,
+        '配信停止'    AS email_send_status,
         NULL         AS email_re_send_status,
         NULL         AS serial_number,
         a.email_issue_remarks AS remarks
@@ -192,7 +192,7 @@ SELECT
         WHEN gift_seq_no = 999999999 THEN 1
         WHEN COALESCE(email_send_status, '') NOT LIKE '%配信成功%'
          AND COALESCE(email_send_status, '') <> '未配信'
-         AND COALESCE(email_re_send_status, '') NOT LIKE '%再配信成功%' THEN 1
+         AND COALESCE(email_re_send_status, '') NOT LIKE '%配信成功%' THEN 1
         ELSE 0
     END AS "メール配信エラーフラグ",
 
