@@ -199,7 +199,7 @@ mail_resend_history_csv AS (
 integrated_resend_status AS (
     SELECT
         e.user_id, e.product_subsc_ship_category, e.resend_date, e.resend_date_char,
-        e.resend_type, -- 配信方法を記載（「再配信」「別システムで配信」など）
+        e.resend_type, -- 再配信の手段・区分（例:「再配信」「電話連絡の上で別システムから配信」等）
         e.is_resend_success, e.is_resend_failed,
 
         CASE
@@ -260,7 +260,11 @@ integrate_mail_status AS (
             ELSE NULL
         END AS email_send_status,
 
-        -- 再配信した場合のステータス情報を組み立て（例. 26-08-04: 再配信成功）
+        -- 再配信結果の表示文字列を3要素から組み立てる
+        -- 「日付: 手段 結果」の順に連結（例: 「26-08-04: 再配信 成功」）
+        --   resend_date_char   … 再配信日（例: "26-08-04: "）
+        --   resend_type        … 再配信の手段・区分（例: "再配信"）
+        --   resend_status_text … 結果（例: "成功", "成功 → 開封済", "失敗"）
         COALESCE(re.resend_date_char, '') ||
             COALESCE(re.resend_type, '') ||
                 COALESCE(re.resend_status_text, '') AS email_re_send_status
