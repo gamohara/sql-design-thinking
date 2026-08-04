@@ -92,10 +92,10 @@ mail_activity_log AS (
         MAX(is_sys_rejected) AS is_sys_rejected,
 
         CASE
-            WHEN MAX(is_sys_sent) = 1 AND MAX(is_sys_opened) = 1  THEN '配信済 → 開封済'
-            WHEN MAX(is_sys_sent) = 1 AND MAX(is_sys_opened) <> 1 THEN '配信済'
-            WHEN MAX(is_sys_failed) = 1                           THEN '配信失敗'
-            WHEN MAX(is_sys_rejected) = 1                         THEN '配信拒否'
+            WHEN MAX(is_sys_sent) = 1 AND MAX(is_sys_opened) = 1  THEN '配信成功 → 開封済'
+            WHEN MAX(is_sys_sent) = 1 AND MAX(is_sys_opened) <> 1 THEN '配信成功'
+            WHEN MAX(is_sys_failed) = 1                           THEN '配信失敗' -- 配信を試みたが失敗
+            WHEN MAX(is_sys_rejected) = 1                         THEN '配信拒否' -- 顧客都合の配信停止・苦情等
             ELSE NULL
         END AS sys_send_status
 
@@ -133,9 +133,9 @@ mail_delivery_csv AS (
         MAX(is_csv_not_sent) AS is_csv_not_sent,
 
         CASE
-            WHEN MAX(is_csv_sent) = 1     THEN '配信済'
+            WHEN MAX(is_csv_sent) = 1     THEN '配信成功'
             WHEN MAX(is_csv_failed) = 1   THEN '配信失敗'
-            WHEN MAX(is_csv_not_sent) = 1 THEN '配信エラー'
+            WHEN MAX(is_csv_not_sent) = 1 THEN '未配信'
             ELSE NULL
         END AS csv_send_status
 
@@ -196,9 +196,9 @@ integrated_resend_status AS (
         e.resend_type, e.is_resend_success, e.is_resend_failed,
 
         CASE
-            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) = 1  THEN '済 → 開封済'
-            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) <> 1 THEN '済'
-            WHEN e.is_resend_failed = 1  THEN '不達'
+            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) = 1  THEN '再配信成功 → 開封済'
+            WHEN e.is_resend_success = 1 AND COALESCE(f.is_sys_opened, 0) <> 1 THEN '再配信成功'
+            WHEN e.is_resend_failed = 1  THEN '再配信失敗'
             ELSE NULL
         END AS resend_status_text
 
@@ -305,9 +305,9 @@ SELECT
         WHEN time_line = '過去'
          AND (
                 CASE
-                    WHEN email_send_status LIKE '%配信済%'
-                      OR email_re_send_status LIKE '%済%'              THEN '済'
-                    WHEN email_send_status IN ('配信失敗', '配信エラー') THEN '不達'
+                    WHEN email_send_status LIKE '%配信成功%'
+                      OR email_re_send_status LIKE '%再配信成功%'       THEN '済'
+                    WHEN email_send_status = '配信失敗'                 THEN '不達'
                     WHEN email_send_status = '未配信'                   THEN NULL
                     ELSE email_send_status
                 END

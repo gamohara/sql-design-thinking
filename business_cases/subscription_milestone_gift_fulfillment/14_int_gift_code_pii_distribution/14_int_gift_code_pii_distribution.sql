@@ -65,7 +65,7 @@ extract_confirmed_target_list AS (
         NULLIF(serial_number, '') AS serial_number, time_line,
 
         CASE WHEN order_status = '配達完了' THEN 1 ELSE 0 END AS is_dlv_comp,
-        CASE WHEN email_send_status LIKE '%配信済%' THEN 1 ELSE 0 END AS is_email_send
+        CASE WHEN email_send_status LIKE '%配信成功%' THEN 1 ELSE 0 END AS is_email_send
 
     FROM
         int_email_delivery_status_integration -- 【前工程】13_int_email_delivery_status_integration

@@ -190,9 +190,9 @@ SELECT
     -- メール不備による事前除外者、もしくは初回も再配信も成功しておらず「未配信」でもない顧客をエラーとして検知
     CASE
         WHEN gift_seq_no = 999999999 THEN 1
-        WHEN COALESCE(email_send_status, '') NOT LIKE '%済%'
+        WHEN COALESCE(email_send_status, '') NOT LIKE '%配信成功%'
          AND COALESCE(email_send_status, '') <> '未配信'
-         AND COALESCE(email_re_send_status, '') NOT LIKE '%済%' THEN 1
+         AND COALESCE(email_re_send_status, '') NOT LIKE '%再配信成功%' THEN 1
         ELSE 0
     END AS "メール配信エラーフラグ",
 

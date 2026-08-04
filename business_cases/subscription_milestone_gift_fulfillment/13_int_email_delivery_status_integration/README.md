@@ -35,7 +35,13 @@ Email logs are split across an automated MA-tool log and a manually managed CSV;
 
 7段階の優先順位ロジック（`integrate_mail_status` のCASE文）を用いて、両ログソースの整合性パターンごとに「どちらを信頼すべきか」を判定します（例：両方が「送信済」なら開封等の詳細が分かるシステムログを優先、CSVのみが「送信済」なら手動補正とみなしてCSVを優先）。さらに、システム判定ステータスと手動CSVの表記揺れを吸収してから比較することで、不一致アラートの精度を高めています。
 
+**【優先順位の根底ルール】**
+両ログソースが食い違う場合は、常に運用CSV（手動記録）側のステータスが優先されます。両者が一致する場合のみ、システムログが持つより詳細な情報（開封有無、失敗か拒否かの区別）が採用されます。これは「最終判断は現場の運用担当者」という運用ルールをロジックに落とし込んだものです。
+
 A 7-tier priority ladder resolves each possible agreement/disagreement pattern between the two log sources (e.g., preferring the system log's richer detail when both agree, but preferring the manually-corrected CSV when it alone shows success). Wording variations between the system's computed status and the manual CSV's free-text status are normalized before comparison to keep the mismatch alert accurate.
+
+**【The underlying priority rule】**
+Whenever the two log sources disagree, the operator-managed CSV (manual record) always wins. Only when both sources agree does the query adopt the system log's richer detail (whether the email was opened, and whether a failure was a hard failure or a customer opt-out/rejection). This encodes the operational rule that "the on-the-ground operator has final say" directly into the query logic.
 
 ---
 
@@ -80,3 +86,6 @@ MAツールのログはUTCで記録されているため、`CONVERT_TIMEZONE` �
 
 ### 結合キーの注意点
 ログ結合では、本来の特典予定日ではなく、手動調整を加味した `digital_gift_present_date_adjusted` をキーとしています。これにより、運用側で配信日をずらした顧客のログも正確に取得できます。
+
+### 「不達」と「未配信」の使い分け
+最終ステータスが「不達」となるのは、過去分かつ手動リストに配信記録（`email_send_status_manu`）が存在するのに、システム・CSV双方にログが見つからない場合です。手動記録がある以上は一度は配信を試みた形跡があるため、「配信を試みたが失敗した可能性が高い」という意味で「不達」としています。一方「未配信」は、手動記録すら存在しない場合（過去分・現在分・未来分いずれも）で、そもそも配信自体が行われていない状態を指します。両者は見た目が似ていますが、「配信を試みた形跡の有無」という異なる確度を表しており、意図的に区別しています。
