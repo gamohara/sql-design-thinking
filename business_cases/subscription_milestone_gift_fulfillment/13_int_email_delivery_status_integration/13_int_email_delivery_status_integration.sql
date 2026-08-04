@@ -69,7 +69,7 @@ target_present_list_base AS (
         gift_seq_no, user_id, digital_gift_present_date, product_subsc_ship_category,
         RIGHT(product_subsc_ship_category, 12) AS subsc_ship_category,
         order_status, payment_status, serial_number,
-        email_send_status_manu, -- 手動CSVのステータス
+        email_send_status_manu, -- 手動CSVのステータス（「配信成功」「配信失敗」等、内部標準化済みの語彙で入力される）
         time_line,
         digital_gift_present_date_adjusted,
         alert_status_main, alert_status_detail
