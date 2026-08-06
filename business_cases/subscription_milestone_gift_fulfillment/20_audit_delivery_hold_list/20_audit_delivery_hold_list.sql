@@ -12,7 +12,7 @@
     1. 配送業者の遅延等でまだ商品が届いていない顧客
     2. メールアドレスが未登録・配信失敗・購読解除の状態にある顧客
     3. 代金がまだ支払われていない（未入金）の顧客（持ち逃げ防止）
-    4. 過去に実際に配信を行ったが、届かずに「不達」となった実績がある顧客
+    4. 過去に実際に配信を行ったが、届かずに「配信失敗」となった実績がある顧客
 
   このデータをただ削除して終わらせてしまうと、「なぜこの人に送られなかったのか」を
   追跡できなくなるため、本クエリは「配信ストップ時のスナップショット（証拠）」を記録し、
@@ -84,6 +84,7 @@ shipped_not_delivered_alert_list AS (
             ELSE 0
         END AS is_email_error,
 
+        -- check_category の例:「①出荷_出荷完了止まり」
         '①' || ship_hold_check AS check_category,
         NULL                     AS check_detail,
         hash_key
@@ -115,6 +116,7 @@ email_error_alert_list AS (
             ELSE 0
         END AS is_email_error,
 
+        -- check_category の例:「②メールアドレス_未登録」「②メールアドレス_配信失敗」「②メールアドレス_購読解除」
         '②' || email_issue_remarks AS check_category,
         NULL                        AS check_detail,
         hash_key
@@ -146,6 +148,7 @@ payment_pending_alert_list AS (
             ELSE 0
         END AS is_email_error,
 
+        -- check_category の例:「③入金_未入金止まり」
         '③' || payment_hold_check AS check_category,
         NULL                        AS check_detail,
         hash_key
@@ -180,7 +183,7 @@ past_delivery_failed_alert_list AS (
             ELSE 0
         END AS is_email_error,
 
-        '②メールアドレス_配信失敗' AS check_category,
+        '②メールアドレス_配信失敗' AS check_category, -- 固定値（実績からの逆流検知のため、値は常に一定）
         NULL                        AS check_detail,
         a.hash_key
 
@@ -188,12 +191,12 @@ past_delivery_failed_alert_list AS (
         int_predelivery_alert_check a -- 【前工程】10_int_predelivery_alert_check
 
     INNER JOIN
-        stg_past_delivery_bounce b -- 【GUIパラメータ層】配信試行後にメール不達となった実績データ（配信前除外とは異なる）
+        stg_past_delivery_bounce b -- 【GUIパラメータ層】配信試行後にメール配信失敗となった実績データ（配信前除外とは異なる）
     ON a.user_id = b.user_id
     AND a.product_subsc_ship_category = b.product_subsc_ship_category
 
     WHERE
-        a.time_line IN ('過去', '現在') -- ★未来の予定データが不達実績に引っ張られて出力されるのを防ぐ
+        a.time_line IN ('過去', '現在') -- ★未来の予定データが配信失敗実績に引っ張られて出力されるのを防ぐ
 ),
 
 -----------------------------------------------------------

@@ -67,7 +67,7 @@ By comparing the hold-time snapshot against current status across three independ
 
 ### Master / Reference Tables
 - `map_gift_target_ledger` : 対象者リスト
-- `stg_past_delivery_bounce` : 配信を試みた後に不達となった実績データ（配信前の事前チェックによる除外とは異なる）
+- `stg_past_delivery_bounce` : 配信を試みた後に配信失敗となった実績データ（配信前の事前チェックによる除外とは異なる）
 - `map_delivery_hold_ledger` : 配信停止リスト（保留時点のスナップショットを保持）
 
 ---

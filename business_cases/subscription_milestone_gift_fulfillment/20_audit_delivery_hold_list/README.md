@@ -63,10 +63,25 @@ By persisting a snapshot of the hold-time state and muting already-recorded or a
 ### Intermediate Tables
 - `int_predelivery_alert_check` : 配信前アラート済リスト（10）
 - `int_gift_code_pii_distribution` : 配信実績（14）
-- `stg_past_delivery_bounce` : 過去に配信を試みた後、不達となった実績データ（配信前の事前チェックによる除外とは異なる）
+- `stg_past_delivery_bounce` : 過去に配信を試みた後、配信失敗となった実績データ（配信前の事前チェックによる除外とは異なる）
 
 ### Master Tables
 - `map_delivery_hold_ledger` : 配信停止リスト
+
+---
+
+## ストップ理由一覧と出力例 / Stop Reasons & Sample Output
+
+| No | CTE | 由来 | check_category の例 |
+|----|-----|------|---------------------|
+| ① | `shipped_not_delivered_alert_list` | 10（出荷チェック） | `①出荷_出荷完了止まり` |
+| ② | `email_error_alert_list` | 10（顧客情報登録チェック） | `②メールアドレス_未登録`<br>`②メールアドレス_配信失敗`<br>`②メールアドレス_購読解除` |
+| ③ | `payment_pending_alert_list` | 10（入金チェック） | `③入金_未入金止まり` |
+| ④ | `past_delivery_failed_alert_list` | 10 + `stg_past_delivery_bounce`（実績からの逆流） | `②メールアドレス_配信失敗`（固定値） |
+
+各ストップ理由の判定条件そのものの詳細は、由来として示した10番を参照してください。本表はあくまで、20番単体を読んだときに実際の出力イメージを掴むための一覧です。
+
+This table summarizes each stop reason's origin and sample output so a reader of this query alone can picture the actual data, without needing to trace the upstream query first. For the underlying judgment logic itself, see [10_int_predelivery_alert_check](../10_int_predelivery_alert_check/).
 
 ---
 
