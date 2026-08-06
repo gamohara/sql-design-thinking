@@ -79,3 +79,8 @@ Step 4の月末日算出（「1ヵ月足した日付の月初から1日引く」
 
 ### 連番生成のお作法
 Step 5の `ROW_NUMBER() OVER (ORDER BY SEQ4())` は、Snowflake環境において絶対に歯抜けのない連番を生成するための必須のお作法です。
+
+### 除外条件の非対称性について
+`is_due_to_email_error`（メール不備）は現在・未来どちらの対象者にも適用される一方、`is_shipped_not_delivered`（出荷止まり）・`is_payment_pending`（未入金）は「現在」の対象者にのみ適用されます。これは、未入金・出荷止まりが時間の経過とともに自然に解消される可能性が高い一時的な状態であるのに対し、メールアドレスの不備（配信停止・誤登録等）は顧客自身が能動的に修正しない限り、配信予定日が来ても状況が変わらない可能性が高いためです。この違いを踏まえ、自然解消が見込める2条件は「まだ時間がある」未来分では判定を保留し、解消の見込みが薄いメール不備のみ未来分も含めて早期に除外しています。
+
+While `is_due_to_email_error` (email issues) is applied to both "current" and "future" targets, `is_shipped_not_delivered` (shipment stalled) and `is_payment_pending` (payment pending) are applied only to "current" targets. This is because unpaid/stalled-shipment states are temporary and likely to resolve naturally over time, whereas an email address problem (bounced, mistyped, etc.) is unlikely to change by the delivery date unless the customer actively corrects it. Given this difference, the two naturally-resolving conditions are deferred for "future" targets (which still have time left), while the email-issue condition — unlikely to self-resolve — is excluded early, covering future targets too.
