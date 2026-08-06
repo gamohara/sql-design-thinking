@@ -79,6 +79,24 @@ New check rules can be added by creating a new `alert_xxx` CTE and appending it 
 
 ---
 
+## アラート一覧と出力例 / Alert Types & Sample Output
+
+| No | CTE | 由来 | check_category の例 | check_detail の例 |
+|----|-----|------|---------------------|--------------------|
+| ① | `alert_f2_to_f4_returns` | 09（返品チェック） | `①返品_2回目出荷`<br>`①除外対象_2回目出荷_悪質顧客のため`<br>`①返品の可能性_2回目出荷` | `悪質`<br>`返品依頼あり（プレ予定日：08/04）？` |
+| ② | `alert_duplicate_orders` | 02（重複チェック） | `②重複注文_PRODUCT_A` | （注文IDのリスト） |
+| ③ | `alert_no_dm_history` | 02（DM履歴チェック） | `③DM履歴_ギフト対象者なし` | — |
+| ④ | `alert_missing_bonus_gift` | 06（追加特典対象漏れ） | `④追加特典_対象漏れ` | — |
+| ⑤ | `alert_immediate_subsc_cancel` | 09（定期解約チェック） | `⑤定期解約中_2回目出荷` | — |
+| ⑥ | `alert_short_leadtime_shipments` | 09（出荷チェック） | `⑥出荷_短期間発送` | — |
+| ⑦ | `alert_recovered_from_stop_list` | 12（回復検知） | `⑦本日分_対象漏れ`<br>`⑦過去分_配信失敗` | `出荷ステータス更新（以前は SHP_COMP）` |
+
+各アラートの判定条件そのものの詳細は、由来として示した各クエリ（02, 06, 09, 12）を参照してください。本表はあくまで、19番単体を読んだときに実際の出力イメージを掴むための一覧です。
+
+This table summarizes each alert's origin and sample output so a reader of this query alone can picture the actual data, without needing to trace each upstream query first. For the underlying judgment logic itself, see the source query listed in the "由来" column (02, 06, 09, or 12).
+
+---
+
 ## 運用と保守 / Operations & Maintenance
 
 ### 新しいアラートルールの追加方法

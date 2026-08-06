@@ -73,8 +73,11 @@ alert_f2_to_f4_returns AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「①返品_2回目出荷」「①除外対象_2回目出荷_悪質顧客のため」
+        -- 「①返品の可能性_2回目出荷」
         '①' || return_check AS check_category,
 
+        -- check_detail の例:「悪質」「返品依頼あり（プレ予定日：08/04）？」
         CASE
             WHEN is_high_risk = 1
              AND DATEDIFF(day, digital_gift_present_date, return_completed_date) > 0 THEN '悪質'
@@ -108,6 +111,7 @@ alert_duplicate_orders AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「②重複注文_PRODUCT_A」
         '②' || duplicate_check_major || duplicate_check_minor AS check_category,
         duplicate_check_detail                                AS check_detail,
         is_cus_merged,
@@ -137,6 +141,7 @@ alert_no_dm_history AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「③DM履歴_ギフト対象者なし」
         '③' || dm_history_check AS check_category,
         NULL                     AS check_detail,
         is_cus_merged,
@@ -163,6 +168,7 @@ alert_missing_bonus_gift AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「④追加特典_対象漏れ」
         '④' || check_for_bonus_gift AS check_category,
         NULL                        AS check_detail,
         is_cus_merged,
@@ -187,6 +193,7 @@ alert_immediate_subsc_cancel AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「⑤定期解約中_2回目出荷」
         '⑤' || subsc_cancel_check AS check_category,
         NULL                       AS check_detail,
         is_cus_merged,
@@ -211,6 +218,7 @@ alert_short_leadtime_shipments AS (
         CASE WHEN is_payment_received = 1 THEN '入金済' ELSE '未入金' END AS payment_status,
 
         return_completed_date,
+        -- check_category の例:「⑥出荷_短期間発送」
         '⑥' || ship_interval_check AS check_category,
         NULL                        AS check_detail,
         is_cus_merged,
@@ -232,7 +240,9 @@ alert_recovered_from_stop_list AS (
         user_id, product_subsc_ship_category, order_id, ship_date, digital_gift_present_date,
         order_status, payment_status,
         CAST(NULL AS DATE) AS return_completed_date,
+        -- check_category の例:「⑦本日分_対象漏れ」「⑦過去分_配信失敗」
         '⑦' || alert_status_main     AS check_category,
+        -- check_detail には12番で生成された復帰理由がそのまま入る（例:「出荷ステータス更新（以前は SHP_COMP）」）
         alert_status_detail_adjusted AS check_detail, -- ★前工程(12)で生成した全リカバリー理由を引き継ぐ
         is_cus_merged,
         NULL AS is_multiple_subsc
