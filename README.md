@@ -100,10 +100,12 @@ These examples demonstrate SQL patterns used for:
 # Overall Architecture / 全体アーキテクチャ
 
 `business_cases` 配下の5つのケースは、それぞれ独立したサンプルであると同時に、  
-実際には**1つの大きなデータ基盤（受注データ統合 → マーケティングKPI基盤 → 顧客特典配布）を構成するモジュール群**として設計されています。
+実際には**1つの大きなデータ基盤（受注データ統合 → マーケティングKPI基盤 → 顧客特典配布）を構成するモジュール群**として設計されています。  
+`ltv_retention_cohort_analysis`（LTV・残存率コホート分析）は、これらとテーブルを共有しない**自己完結的な6ケース目**です。
 
 The five cases under `business_cases` can be read independently, but they are also designed as  
-**modules of a single, larger data platform** (order data integration → marketing KPI foundation → customer reward fulfillment).
+**modules of a single, larger data platform** (order data integration → marketing KPI foundation → customer reward fulfillment).  
+`ltv_retention_cohort_analysis` (LTV / Retention Cohort Analysis) is a **6th, self-contained case** that does not share tables with the others.
 
 ```mermaid
 graph TD
@@ -123,7 +125,10 @@ graph TD
 
     smgf["📁 subscription_milestone_gift_fulfillment<br/>定期購入マイルストーン特典配布システム"]:::case
 
+    ltv[("📁 ltv_retention_cohort_analysis<br/>LTV・残存率コホート分析（自己完結）")]:::standalone
+
     classDef case fill:#e8f5e9,stroke:#388e3c,stroke-width:2px;
+    classDef standalone fill:#eceff1,stroke:#546e7a,stroke-width:2px,stroke-dasharray: 5 5;
 ```
 
 - **subscription**: 定期購入の金額・ポイント配分ロジック → `Unified-Order-Line-Fact` の定期情報として参照
@@ -131,6 +136,7 @@ graph TD
 - **Unified-Order-Line-Fact**: 受注明細単位での金額・ステータスの統合ファクトテーブル構築（出力が次工程の入力になる）
 - **Advanced_marketing_foundation**: 上記すべてを土台に、マーケティングKPI（純新規・LTV等）を算出するレイヤー
 - **subscription_milestone_gift_fulfillment**: 定期購入が特定の累計本数に到達した顧客へデジタルギフトを付与する、20クエリ構成のCRM/マーケティング自動化パイプライン（最終レイヤー）
+- **ltv_retention_cohort_analysis**: 定期購入顧客のLTV・残存率をコホート単位で分析する4クエリ構成のパイプライン。上記5ケースとはテーブルを共有しない、自己完結的なケース（破線で図示）
 
 各ケースのREADMEには、この全体像における位置づけ（Upstream / Downstream）を明記しています。
 
@@ -184,6 +190,8 @@ this section records the cross-cutting decisions made about how the repository i
  │    └── 📁 advanced_marketing_foundation
  │    │
  │    └── 📁 subscription_milestone_gift_fulfillment
+ │    │
+ │    └── 📁 ltv_retention_cohort_analysis
  │
  └── 📁 advanced_sql_recipes
 ```
