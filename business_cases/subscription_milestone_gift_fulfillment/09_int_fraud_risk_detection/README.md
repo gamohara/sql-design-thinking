@@ -64,6 +64,10 @@ By recording the target order number (`order_no + 1`) alongside each detected ab
 
 ## データ構造 / Input Data Structure
 
+本クエリが通過させるコースフラグ（`is_course_3bottle_first` 等）の意味は、[ケース全体README「特典対象コースの詳細」](../README.md#特典対象コースの詳細--course-details)を参照してください。
+
+See [the case-level README's "Course Details" section](../README.md#特典対象コースの詳細--course-details) for the meaning of the course flags (`is_course_3bottle_first`, etc.) this query passes through.
+
 ### Intermediate Tables
 - `int_gift_timing_manual_override` : 配信タイミング調整済ジャーニー（08）
 

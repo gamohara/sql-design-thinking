@@ -10,6 +10,40 @@ This project is a CRM/marketing automation pipeline that grants a digital gift (
 
 ---
 
+## 特典対象コースの詳細 / Course Details
+
+本パイプラインが対象とする定期購入コースは2種類あり、それぞれ配信回数・タイミング・返品時の扱いが異なります。
+
+### コース①: 初回から3本定期　例: 「初回3本_定期フラグ」など
+初回から一貫して3本でお届けするコースです。お届け周期は約90日ごと。2回目・3回目の発送時点をマイルストーンとし、各発送後◯日でプレゼントを配信します（合計2回配信）。
+
+### コース②: 初回1本→2本/3本アップグレード　例: 「初回1本→2本_定期フラグ」「初回1本→3本_定期フラグ」など
+初回のみ1本でお届けし、約30日後の2回目からは2本または3本でお届けするコースです（お届け周期はそれぞれ約60日/約90日ごと）。3回目・4回目の発送時点をマイルストーンとし、各発送後◯日でプレゼントを配信します（合計2回配信）。
+
+このうち「1本→2本」のコースのみ、2回目発送前にコールセンターから「3本定期への変更」を案内するアウトバウンドを実施する運用があります。案内に応じて実際にコースを変更した場合、2回目発送後に追加でもう1回プレゼントを配信します（[06_int_bonus_gift_upsell_detection](./06_int_bonus_gift_upsell_detection/) が該当）。
+
+### 発送回数のカウントルール
+- **発送前キャンセル**: 内容によらず回数カウントから除外します。
+- **プレゼントに関わらないタイミングでの返品**: 初回発送分、および「1本→2本/3本」コースの2回目発送分（アップセルによる追加特典対象を除く）の返品は、回数カウントから除外します（[07_int_journey_return_adjustment](./07_int_journey_return_adjustment/) が該当）。
+- **プレゼントに関わる発送分の返品**: プレゼント配信後の返品である可能性があるため、自動除外はせず、運用担当者による目視確認と手動判定に委ねます。
+
+This pipeline covers two subscription enrollment courses, each differing in shipment count, timing, and how returns are handled.
+
+### Course 1: 3 Bottles from the Start — e.g. flagged via `is_course_3bottle_first`, etc.
+Ships 3 bottles consistently from the very first shipment, on an approximately 90-day cycle. The 2nd and 3rd shipments are the milestones; a gift is sent a set number of days after each of those two shipments (2 gifts total).
+
+### Course 2: 1 Bottle → Upgraded to 2/3 Bottles — e.g. flagged via `is_course_upgraded_1_to_2` / `is_course_upgraded_1_to_3`, etc.
+Ships 1 bottle for the first shipment only, then switches to 2 or 3 bottles starting with the 2nd shipment roughly 30 days later (on an approximately 60-day or 90-day cycle, respectively). The 3rd and 4th shipments are the milestones; a gift is sent a set number of days after each of those two shipments (2 gifts total).
+
+Only the "1→2 bottle" course has an operational flow where the call center reaches out before the 2nd shipment to offer an upgrade to the 3-bottle course. If the customer actually switches courses in response, one additional gift is sent after the 2nd shipment (handled by [06_int_bonus_gift_upsell_detection](./06_int_bonus_gift_upsell_detection/)).
+
+### Shipment-Count Rules
+- **Cancellation before shipment**: Excluded from the count regardless of the reason.
+- **Returns at a timing unrelated to the gift**: Returns of the 1st shipment, and of the 2nd shipment for the "1→2/3 bottle" course (excluding customers eligible for the bonus gift via upsell), are excluded from the count (handled by [07_int_journey_return_adjustment](./07_int_journey_return_adjustment/)).
+- **Returns of a shipment tied to a gift**: Since this could be a return occurring *after* the gift was already sent, it is not auto-excluded — it's left to manual review and judgment by the operator.
+
+---
+
 ## リポジトリ全体における位置づけ / Position in the Overall Architecture
 
 本ケースは [Advanced_marketing_foundation](../Advanced_marketing_foundation/) の次工程として、`stg_all_purchases_base`（全購入基本データ）を土台に構築されています。

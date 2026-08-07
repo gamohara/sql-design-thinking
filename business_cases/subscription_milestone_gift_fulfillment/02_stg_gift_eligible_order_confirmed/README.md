@@ -61,6 +61,10 @@ By separating order-level exception handling into its own query and surfacing du
 
 ## データ構造 / Input Data Structure
 
+前工程（01）から引き継ぐコースフラグ（`is_course_3bottle_first` 等）の意味は、[ケース全体README「特典対象コースの詳細」](../README.md#特典対象コースの詳細--course-details)を参照してください。
+
+See [the case-level README's "Course Details" section](../README.md#特典対象コースの詳細--course-details) for the meaning of the course flags (`is_course_3bottle_first`, etc.) carried over from the previous query (01).
+
 ### Staging Tables
 - `stg_gift_eligible_purchase_base` : 前工程（01）の出力
 

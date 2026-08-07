@@ -65,6 +65,10 @@ DM履歴・同梱物印字マスタとの結合による対象者ファクトの
 
 ## データ構造 / Input Data Structure
 
+本クエリが最初に付与する `is_course_3bottle_first` / `is_course_upgraded_1_to_2` / `is_course_upgraded_1_to_3` の3つのコースフラグの意味（配信回数・タイミング等）は、[ケース全体README「特典対象コースの詳細」](../README.md#特典対象コースの詳細--course-details)を参照してください。
+
+See [the case-level README's "Course Details" section](../README.md#特典対象コースの詳細--course-details) for what the three course flags this query first assigns (`is_course_3bottle_first` / `is_course_upgraded_1_to_2` / `is_course_upgraded_1_to_3`) actually mean — shipment count, timing, etc.
+
 ### Staging Tables
 - `raw_gift_eligible_purchases` : 特典対象商品ラインの購入明細抽出（GUIパラメータ層で事前絞込済み）
 

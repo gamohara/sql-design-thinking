@@ -10,6 +10,10 @@
 
 Example SQL for identifying customers who qualify for an irregular bonus gift after a successful outbound upsell call, using time-series comparison of repeated F1 purchases to detect genuine course changes and avoid false positives from repeat buyers.
 
+対象となるのは「初回1本→2本」コースのみです（「初回1本→3本」コースにはこのアウトバウンド運用はありません）。コース構成の全体像は、[ケース全体README「特典対象コースの詳細」](../README.md#特典対象コースの詳細--course-details)を参照してください。
+
+This upsell flow applies only to the "1→2 bottle" course (the "1→3 bottle" course has no such outbound operation). See [the case-level README's "Course Details" section](../README.md#特典対象コースの詳細--course-details) for the full picture of both courses.
+
 ---
 
 ## データパイプライン内の位置 / Architecture Position
