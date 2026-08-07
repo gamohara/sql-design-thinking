@@ -13,14 +13,16 @@ This project is an advanced data transformation pipeline that calculates foundat
 ## リポジトリ全体における位置づけ / Position in the Overall Architecture
 
 本ケースは、[Unified-Order-Line-Fact](../Unified-Order-Line-Fact/) の出力 `fct_all_purchases_unified` を  
-下記の `stg_all_purchases_base` として受け取り、マーケティングKPI基盤を構築する**最終レイヤー**です。  
+下記の `stg_all_purchases_base` として受け取り、マーケティングKPI基盤を構築します。  
 さらに遡ると、[customer_entity_resolution_mdm](../customer_entity_resolution_mdm/) の名寄せ済み顧客マスタが  
-「顧客統合に耐えうる純新規判定」の土台になっています。
+「顧客統合に耐えうる純新規判定」の土台になっています。  
+本ケースの出力（`stg_all_purchases_base`）は、次工程の [subscription_milestone_gift_fulfillment](../subscription_milestone_gift_fulfillment/)（定期購入マイルストーン特典配布システム）でも土台として利用されます。
 
-This case is the **final layer** of the pipeline: it receives `fct_all_purchases_unified` from  
+This case receives `fct_all_purchases_unified` from  
 [Unified-Order-Line-Fact](../Unified-Order-Line-Fact/) as `stg_all_purchases_base` below, and builds the marketing KPI foundation.  
 Further upstream, the merged customer master from [customer_entity_resolution_mdm](../customer_entity_resolution_mdm/)  
-underpins the merge-resilient "Pure-New" classification.
+underpins the merge-resilient "Pure-New" classification.  
+Downstream, this case's output (`stg_all_purchases_base`) is also the foundation for [subscription_milestone_gift_fulfillment](../subscription_milestone_gift_fulfillment/), the next case in the pipeline.
 
 リポジトリ全体のアーキテクチャは [トップレベルREADME](../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
 
