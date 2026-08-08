@@ -646,7 +646,7 @@ SELECT
     order_count              AS "獲得件数",
 
     sum_is_subsc_1st         AS "定期件数",
-    sum_is_subsc_multi_1st   AS "複数点定期件数",
+    sum_is_subsc_multi_1st   AS "複数定期件数",
     sum_is_email_subsc       AS "メルマガOK",
     sum_is_subsc_active      AS "定期継続件数",
     avg_current_age          AS "平均年齢",

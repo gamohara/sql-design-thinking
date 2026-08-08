@@ -2,7 +2,7 @@
 ==============================================================================================
 【クエリ概要 / Query Overview】
 ----------------------------------------------------------------------------------------------
- 対象品（定期購入美容液）の顧客ごとの「初回(F1)」「2回目(F2)」「3回目(F3)」「4回目(F4)」の
+ 対象品（定期購入商品）の顧客ごとの「初回(F1)」「2回目(F2)」「3回目(F3)」「4回目(F4)」の
  購入履歴を1行（横持ち）に集約し、LTV分析や定期継続率の分析を行うためのデータマートを作成します。
  返品も含めて「実際に何が起きたか」をそのまま記録する、実績監査モデル（全対象版）です。
  F2〜F4の返品を除外して純粋なリピート率を見たい場合は、本READMEの
@@ -41,7 +41,7 @@
   4. assign_order_sequence
      購入回数の採番と代表属性の特定
   5. prepare_f1_aggregation
-     同日注文に対する代表フラグの伝播と、複数点定期フラグの生成
+     同日注文に対する代表フラグの伝播と、複数定期フラグの生成
   6. subsc_delivery_schedule_source
      定期契約の「次回出荷予定日」や「周期」を取得
   7. purchase_1st
@@ -208,7 +208,7 @@ assign_order_sequence AS (
             ORDER BY ordered_date ASC
         ) AS order_no,
 
-        -- 注文ごとの合計数量（後続の複数点定期フラグで使用）
+        -- 注文ごとの合計数量（後続の複数定期フラグで使用）
         SUM(quantity) OVER(
             PARTITION BY user_id, order_id
         ) AS order_id_sum_quantity,
@@ -654,7 +654,7 @@ SELECT
     product_id_1st                                    AS "1回目_商品ID",
     product_name_1st                                  AS "1回目_商品名",
     is_subsc_1st                                       AS "1回目_定期フラグ",
-    is_subsc_multi_1st                                 AS "1回目_複数点定期フラグ",
+    is_subsc_multi_1st                                 AS "1回目_複数定期フラグ",
     is_subsc_active                                    AS "定期継続フラグ_対象品",
     ordered_date_1st                                   AS "1回目_受注日",
     shipment_date_1st                                  AS "1回目_出荷日",
