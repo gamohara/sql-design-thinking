@@ -6,7 +6,7 @@
 
 両クエリとも、返品も含めて「実際に何が起きたか」をそのまま記録する全対象版（実績監査モデル）として実装しています。返品ノイズを除いた「本当のリピート顧客」だけの残存率を見たい場合は、各クエリのREADME内「返品考慮版にする場合」で、どのCTEにどんな条件を加えればよいかをコード例つきで説明しています。
 
-This case is a 2-query pipeline that consolidates a customer's 1st-through-4th purchase and shipment history into a wide cohort mart for LTV and retention analysis, for a subscription cosmetics product. Both queries are implemented as the "all-targets" audit-grade model (which records returns rather than excluding them); each query's README documents, with code examples, how to derive a return-excluded "pure retention" variant from it.
+This case is a 2-query pipeline that consolidates a customer's 1st-through-4th purchase and shipment history into a wide cohort mart for LTV and retention analysis, for a subscription product. Both queries are implemented as the "all-targets" audit-grade model (which records returns rather than excluding them); each query's README documents, with code examples, how to derive a return-excluded "pure retention" variant from it.
 
 ---
 
