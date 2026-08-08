@@ -136,7 +136,7 @@ graph TD
 - **Unified-Order-Line-Fact**: 受注明細単位での金額・ステータスの統合ファクトテーブル構築（出力が次工程の入力になる）
 - **Advanced_marketing_foundation**: 上記すべてを土台に、マーケティングKPI（純新規・LTV等）を算出するレイヤー
 - **subscription_milestone_gift_fulfillment**: 定期購入が特定の累計本数に到達した顧客へデジタルギフトを付与する、20クエリ構成のCRM/マーケティング自動化パイプライン（最終レイヤー）
-- **ltv_retention_cohort_analysis**: 定期購入顧客のLTV・残存率をコホート単位で分析する4クエリ構成のパイプライン。上記5ケースとはテーブルを共有しない、自己完結的なケース（破線で図示）
+- **ltv_retention_cohort_analysis**: 定期購入顧客のLTV・残存率をコホート単位で分析する2クエリ構成のパイプライン。上記5ケースとはテーブルを共有しない、自己完結的なケース（破線で図示）
 
 各ケースのREADMEには、この全体像における位置づけ（Upstream / Downstream）を明記しています。
 

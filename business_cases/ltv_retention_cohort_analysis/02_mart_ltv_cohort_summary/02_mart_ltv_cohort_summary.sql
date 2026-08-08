@@ -2,23 +2,27 @@
 ==============================================================================================
 【クエリ概要 / Query Overview】
 ----------------------------------------------------------------------------------------------
- F1〜F4の横持ち受注データ（前工程のGUIパラメータ層で特定プロモ・特定期間かつ返品考慮の
- モデルに限定済みのテーブル）と、広告のアクセスデータ（クリック・CV）を結合し、
- ダッシュボード表示用に「月別」「取引先別」「コード別」といった様々な粒度でRollup（小計・合計）
- を集計したサマリーデータマートを作成します。受注側・アクセス側の双方を「オファー／LP種別
- （FV・BOT・アップセル）／媒体詳細」まで同一粒度に揃えることで、これらの軸を横断した
- 精緻な分析を可能にしています（F2〜返品考慮版）。
-  Monthly/Vendor/Code Rollup Summary Mart (Return-Excluded Variant) — Marts Layer
+ F1〜F4横持ち受注データ（特定プロモ・特定期間に限定済み）と広告のアクセスデータ（クリック・CV）
+ を結合し、「月別」「取引先別」「コード別」など様々な粒度でRollup（小計・合計）したダッシュボード
+ 表示用サマリーマートを作成するSQLの設計例です（全対象版）。
+
+ 以下の高度な設計を含みます。
+ - 再帰CTEによるゼロ埋めカレンダー（受注実績がない月も「0」として表示）
+ - GROUPING SETSによる6パターン粒度の一括集計と、ディメンションキーを揃えたクロス結合防止JOIN
+ - スプレッドシートへの「ベタ貼り」運用に対応した、表示ブロック順の絶対制御
+
+Example SQL that unifies order-based F1–F4 metrics with ad click/CV data across six rollup
+granularities in a single pass using GROUPING SETS, guarding the join between order and access
+aggregates against a cross-join explosion.
 
 【業務ロジック / Business Logic】
 ----------------------------------------------------------------------------------------------
   1. 対象母集団（GUIパラメータ層による絞り込み）
-     本クエリの入力である `stg_ltv_cohort_target_period_no_return` は、`02_int_ltv_cohort_
-     base_no_return`（F2〜返品考慮版の横持ちマート）を、前工程のGUIパラメータ層で
-     「1回目の受注プロモが対象パターンに一致（ネット媒体） かつ 1回目の受注日が指定期間内」に
-     限定したものです。対象条件（期間や媒体条件）を変更したい場合は、SQL側ではなく大元の
-     GUIパラメータ条件（詳細はケース全体READMEの「GUIパラメータ層」節を参照）を変更して
-     ください。母集団が変わると本クエリの全ての集計結果に影響します。
+     本クエリの入力である `stg_ltv_cohort_target_period` は、前工程のGUIパラメータ層にて
+     「1回目の受注プロモが対象パターンに一致（ネット媒体） かつ 1回目の受注日が指定期間内」の
+     顧客のみに限定済みです。対象条件（期間や媒体条件）を変更したい場合は、SQL側ではなく
+     大元のGUIパラメータ条件（詳細はケース全体READMEの「GUIパラメータ層」節を参照）を
+     変更してください。母集団が変わると本クエリの全ての集計結果に影響します。
   2. ゼロ埋めカレンダー（再帰CTEの活用）
      受注実績がない月でも、グラフ上で「0」として表示（歯抜け防止）させるため、
      再帰CTE（WITH RECURSIVE）を使って最初の受注月から現在までの「月軸」を動的に生成し、
@@ -30,8 +34,8 @@
      受注側・アクセス側それぞれのGROUPING SETSに「オファー／LP種別／媒体詳細」を共通で
      組み込んだ上で、統合ステップの結合条件でも両者を完全に同じキー構成（7項目）で
      突き合わせています。過去にこのキー構成が片側だけ更新され、クロス結合による実績値の
-     増殖という重大な障害が発生したことがあります（`03_mart_ltv_cohort_summary_all`と
-     共通の設計。詳細と再発防止策はケース全体READMEの運用・保守セクションを参照してください）。
+     増殖という重大な障害が発生したことがあります。詳細と再発防止策はケース全体READMEの
+     運用・保守セクションを参照してください。
   5. 小計行の複製と2パス最適化ソート制御（ベタ貼り対応）
      GROUPING SETSで1行だけ生成された「月小計」をコード別用・取引先別用に複製しつつ、
      UNION ALLのスキャン回数を抑えた2ブロック結合で高速にレポート表示順を確定させています。
@@ -42,8 +46,8 @@
 【CTE構造 / CTE Structure】
 ----------------------------------------------------------------------------------------------
   1. extract_base_metrics_from_f1_to_f4
-     対象期間限定済みの横持ちテーブル（返品考慮版）から受注・LTV指標を取得し、
-     コース別・回数別にフラグを数値化
+     対象期間限定済みの横持ちテーブルから受注・LTV指標を取得し、コース別・回数別にフラグを数値化
+     ※返品考慮版にする場合はこのCTEのFROM元テーブルを差し替えます。詳細はREADME参照。
   2. min_max_order_date
      受注データの最古・最新受注日を取得（アクセスデータ絞り込みの基準値）
   3. extract_click_cv_metrics
@@ -84,8 +88,8 @@
 
 【出力データ / Output Dataset】
 ----------------------------------------------------------------------------------------------
- LTV/残存率分析用 月次/取引先/コード別サマリーマート（F2〜返品考慮版）
-  mart_ltv_cohort_summary_no_return
+ LTV/残存率分析用 月次/取引先/コード別サマリーマート（全対象版）
+  mart_ltv_cohort_summary
 ==============================================================================================
 */
 
@@ -93,9 +97,9 @@ WITH RECURSIVE
 extract_base_metrics_from_f1_to_f4 AS (
 ------------------------------------------------------------
 -- 1. [ベース抽出] 受注・LTV指標の取得とコース別フラグの展開
---    前工程の横持ちテーブル（特定プロモ×特定期間×返品考慮モデルに限定済みのGUIパラメータ層
---    出力）からデータを取得し、コース（初回2点 / 初回1点→2点）ごとにF2〜F4の対象・購入・
---    継続状況を0/1の数値としてフラグ化します。
+--    前工程の横持ちテーブル（特定プロモ×特定期間に限定済みのGUIパラメータ層出力）から
+--    データを取得し、コース（初回複数定期 / 初回単品定期）ごとにF2〜F4の対象・購入・継続状況を
+--    0/1の数値としてフラグ化します。
 --    粒度: user_id
 ------------------------------------------------------------
     SELECT
@@ -118,7 +122,7 @@ extract_base_metrics_from_f1_to_f4 AS (
 
         -- ▼ 購入１回目 (F1)
         is_subsc_1st,
-        is_subsc_2_plus_1st,
+        is_subsc_multi_1st,
         is_subsc_active,
         ordered_date_1st,
 
@@ -126,51 +130,51 @@ extract_base_metrics_from_f1_to_f4 AS (
         MIN(ordered_date_1st) OVER()          AS min_ordered_date_1st,
 
         -- ▼ 購入２回目 (F2) 分岐
-        -- 初回2点コースの場合のF2実績
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_target_2nd
-             ELSE 0 END AS is_target_2nd_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_purchase_2nd
-             ELSE 0 END AS is_purchase_2nd_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_continuation_2nd
-             ELSE 0 END AS is_subsc_active_2nd_first_2,
+        -- 初回複数定期コースの場合のF2実績
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_target_2nd
+             ELSE 0 END AS is_target_2nd_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_purchase_2nd
+             ELSE 0 END AS is_purchase_2nd_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_continuation_2nd
+             ELSE 0 END AS is_subsc_active_2nd_first_multi,
 
-        -- 初回1点→2回目2点コースの場合のF2実績
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_target_2nd
-             ELSE 0 END AS is_target_2nd_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_purchase_2nd
-             ELSE 0 END AS is_purchase_2nd_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_continuation_2nd
-             ELSE 0 END AS is_subsc_active_2nd_first_1_to_2,
+        -- 初回単品定期コースの場合のF2実績
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_target_2nd
+             ELSE 0 END AS is_target_2nd_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_purchase_2nd
+             ELSE 0 END AS is_purchase_2nd_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_continuation_2nd
+             ELSE 0 END AS is_subsc_active_2nd_first_single_to_multi,
 
         -- ▼ 購入３回目 (F3) 分岐
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_target_3rd
-             ELSE 0 END AS is_target_3rd_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_purchase_3rd
-             ELSE 0 END AS is_purchase_3rd_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_continuation_3rd
-             ELSE 0 END AS is_subsc_active_3rd_first_2,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_target_3rd
+             ELSE 0 END AS is_target_3rd_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_purchase_3rd
+             ELSE 0 END AS is_purchase_3rd_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_continuation_3rd
+             ELSE 0 END AS is_subsc_active_3rd_first_multi,
 
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_target_3rd
-             ELSE 0 END AS is_target_3rd_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_purchase_3rd
-             ELSE 0 END AS is_purchase_3rd_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_continuation_3rd
-             ELSE 0 END AS is_subsc_active_3rd_first_1_to_2,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_target_3rd
+             ELSE 0 END AS is_target_3rd_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_purchase_3rd
+             ELSE 0 END AS is_purchase_3rd_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_continuation_3rd
+             ELSE 0 END AS is_subsc_active_3rd_first_single_to_multi,
 
         -- ▼ 購入４回目 (F4) 分岐
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_target_4th
-             ELSE 0 END AS is_target_4th_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_purchase_4th
-             ELSE 0 END AS is_purchase_4th_first_2,
-        CASE WHEN is_first_2_subsc_1st = 1 AND is_first_1_to_second_2_subsc_1st <> 1 THEN raw_is_continuation_4th
-             ELSE 0 END AS is_subsc_active_4th_first_2,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_target_4th
+             ELSE 0 END AS is_target_4th_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_purchase_4th
+             ELSE 0 END AS is_purchase_4th_first_multi,
+        CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_continuation_4th
+             ELSE 0 END AS is_subsc_active_4th_first_multi,
 
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_target_4th
-             ELSE 0 END AS is_target_4th_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_purchase_4th
-             ELSE 0 END AS is_purchase_4th_first_1_to_2,
-        CASE WHEN is_first_2_subsc_1st <> 1 AND is_first_1_to_second_2_subsc_1st = 1 THEN raw_is_continuation_4th
-             ELSE 0 END AS is_subsc_active_4th_first_1_to_2,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_target_4th
+             ELSE 0 END AS is_target_4th_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_purchase_4th
+             ELSE 0 END AS is_purchase_4th_first_single_to_multi,
+        CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_continuation_4th
+             ELSE 0 END AS is_subsc_active_4th_first_single_to_multi,
 
         -- ▼ 媒体情報関係
         latest_ad_code_1st,
@@ -181,15 +185,17 @@ extract_base_metrics_from_f1_to_f4 AS (
         lp_bot_type_1st,
         lp_upsell_type_1st,
         media_detail_1st,
-        is_first_2_subsc_1st,
-        is_first_1_to_second_2_subsc_1st
+        is_first_multi_subsc_1st,
+        is_first_single_to_multi_subsc_1st
 
     FROM
         -- GUIパラメータ層にて「1回目の受注プロモが対象パターンに一致（ネット媒体） かつ
         -- 1回目の受注日が指定期間内（本モデルでは2024/03/01〜2024/03/15）」に限定済み。
         -- 対象条件を変更したい場合は、大元のGUIパラメータ条件を変更してください
         -- （詳細はケース全体READMEの「GUIパラメータ層」節を参照）
-        stg_ltv_cohort_target_period_no_return
+        -- ※返品考慮版にする場合は、[01_int_ltv_cohort_base](../01_int_ltv_cohort_base/)を
+        --   返品考慮版に差し替えた上でGUIパラメータ層を通した結果を参照します。詳細はREADME参照。
+        stg_ltv_cohort_target_period
 ),
 
 min_max_order_date AS (
@@ -250,7 +256,7 @@ extract_click_cv_metrics AS (
             CROSS JOIN
                 min_max_order_date i -- 02. 独立させた期間
             WHERE
-               product_brand_code = 'TARGET_PRODUCT_LINE'  -- 対象化粧品ブランドに限定
+               product_brand_code = 'TARGET_PRODUCT_LINE'  -- 対象品ブランドに限定
               AND ordered_date >= i.min_ordered_date_1st
               AND ordered_date <= i.max_ordered_date_1st
         )
@@ -309,26 +315,26 @@ agg_orders_by_grouping_sets AS (
         COUNT(*)                               AS order_count,
         SUM(is_email_subsc)                    AS sum_is_email_subsc,
         SUM(is_subsc_1st)                      AS sum_is_subsc_1st,
-        SUM(is_subsc_2_plus_1st)               AS sum_is_subsc_2_plus_1st,
+        SUM(is_subsc_multi_1st)                AS sum_is_subsc_multi_1st,
         SUM(is_subsc_active)                   AS sum_is_subsc_active,
-        SUM(is_target_2nd_first_2)             AS sum_is_target_2nd_first_2,
-        SUM(is_purchase_2nd_first_2)           AS sum_is_purchase_2nd_first_2,
-        SUM(is_subsc_active_2nd_first_2)       AS sum_is_subsc_active_2nd_first_2,
-        SUM(is_target_2nd_first_1_to_2)        AS sum_is_target_2nd_first_1_to_2,
-        SUM(is_purchase_2nd_first_1_to_2)      AS sum_is_purchase_2nd_first_1_to_2,
-        SUM(is_subsc_active_2nd_first_1_to_2)  AS sum_is_subsc_active_2nd_first_1_to_2,
-        SUM(is_target_3rd_first_2)             AS sum_is_target_3rd_first_2,
-        SUM(is_purchase_3rd_first_2)           AS sum_is_purchase_3rd_first_2,
-        SUM(is_subsc_active_3rd_first_2)       AS sum_is_subsc_active_3rd_first_2,
-        SUM(is_target_3rd_first_1_to_2)        AS sum_is_target_3rd_first_1_to_2,
-        SUM(is_purchase_3rd_first_1_to_2)      AS sum_is_purchase_3rd_first_1_to_2,
-        SUM(is_subsc_active_3rd_first_1_to_2)  AS sum_is_subsc_active_3rd_first_1_to_2,
-        SUM(is_target_4th_first_2)             AS sum_is_target_4th_first_2,
-        SUM(is_purchase_4th_first_2)           AS sum_is_purchase_4th_first_2,
-        SUM(is_subsc_active_4th_first_2)       AS sum_is_subsc_active_4th_first_2,
-        SUM(is_target_4th_first_1_to_2)        AS sum_is_target_4th_first_1_to_2,
-        SUM(is_purchase_4th_first_1_to_2)      AS sum_is_purchase_4th_first_1_to_2,
-        SUM(is_subsc_active_4th_first_1_to_2)  AS sum_is_subsc_active_4th_first_1_to_2,
+        SUM(is_target_2nd_first_multi)             AS sum_is_target_2nd_first_multi,
+        SUM(is_purchase_2nd_first_multi)           AS sum_is_purchase_2nd_first_multi,
+        SUM(is_subsc_active_2nd_first_multi)       AS sum_is_subsc_active_2nd_first_multi,
+        SUM(is_target_2nd_first_single_to_multi)        AS sum_is_target_2nd_first_single_to_multi,
+        SUM(is_purchase_2nd_first_single_to_multi)      AS sum_is_purchase_2nd_first_single_to_multi,
+        SUM(is_subsc_active_2nd_first_single_to_multi)  AS sum_is_subsc_active_2nd_first_single_to_multi,
+        SUM(is_target_3rd_first_multi)             AS sum_is_target_3rd_first_multi,
+        SUM(is_purchase_3rd_first_multi)           AS sum_is_purchase_3rd_first_multi,
+        SUM(is_subsc_active_3rd_first_multi)       AS sum_is_subsc_active_3rd_first_multi,
+        SUM(is_target_3rd_first_single_to_multi)        AS sum_is_target_3rd_first_single_to_multi,
+        SUM(is_purchase_3rd_first_single_to_multi)      AS sum_is_purchase_3rd_first_single_to_multi,
+        SUM(is_subsc_active_3rd_first_single_to_multi)  AS sum_is_subsc_active_3rd_first_single_to_multi,
+        SUM(is_target_4th_first_multi)             AS sum_is_target_4th_first_multi,
+        SUM(is_purchase_4th_first_multi)           AS sum_is_purchase_4th_first_multi,
+        SUM(is_subsc_active_4th_first_multi)       AS sum_is_subsc_active_4th_first_multi,
+        SUM(is_target_4th_first_single_to_multi)        AS sum_is_target_4th_first_single_to_multi,
+        SUM(is_purchase_4th_first_single_to_multi)      AS sum_is_purchase_4th_first_single_to_multi,
+        SUM(is_subsc_active_4th_first_single_to_multi)  AS sum_is_subsc_active_4th_first_single_to_multi,
         MIN(min_ordered_date_1st)              AS min_ordered_date_1st
 
     FROM
@@ -402,26 +408,26 @@ apply_zero_fill_to_orders AS (
         CASE WHEN a.row_type IS NULL THEN 0 ELSE a.order_count END                           AS order_count,
         CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_email_subsc END                    AS sum_is_email_subsc,
         CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_1st END                      AS sum_is_subsc_1st,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_2_plus_1st END               AS sum_is_subsc_2_plus_1st,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_multi_1st END                AS sum_is_subsc_multi_1st,
         CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active END                   AS sum_is_subsc_active,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_2nd_first_2 END             AS sum_is_target_2nd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_2nd_first_2 END           AS sum_is_purchase_2nd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_2nd_first_2 END       AS sum_is_subsc_active_2nd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_2nd_first_1_to_2 END        AS sum_is_target_2nd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_2nd_first_1_to_2 END      AS sum_is_purchase_2nd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_2nd_first_1_to_2 END  AS sum_is_subsc_active_2nd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_3rd_first_2 END             AS sum_is_target_3rd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_3rd_first_2 END           AS sum_is_purchase_3rd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_3rd_first_2 END       AS sum_is_subsc_active_3rd_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_3rd_first_1_to_2 END        AS sum_is_target_3rd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_3rd_first_1_to_2 END      AS sum_is_purchase_3rd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_3rd_first_1_to_2 END  AS sum_is_subsc_active_3rd_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_4th_first_2 END             AS sum_is_target_4th_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_4th_first_2 END           AS sum_is_purchase_4th_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_4th_first_2 END       AS sum_is_subsc_active_4th_first_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_4th_first_1_to_2 END        AS sum_is_target_4th_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_4th_first_1_to_2 END      AS sum_is_purchase_4th_first_1_to_2,
-        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_4th_first_1_to_2 END  AS sum_is_subsc_active_4th_first_1_to_2,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_2nd_first_multi END             AS sum_is_target_2nd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_2nd_first_multi END           AS sum_is_purchase_2nd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_2nd_first_multi END       AS sum_is_subsc_active_2nd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_2nd_first_single_to_multi END        AS sum_is_target_2nd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_2nd_first_single_to_multi END      AS sum_is_purchase_2nd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_2nd_first_single_to_multi END  AS sum_is_subsc_active_2nd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_3rd_first_multi END             AS sum_is_target_3rd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_3rd_first_multi END           AS sum_is_purchase_3rd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_3rd_first_multi END       AS sum_is_subsc_active_3rd_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_3rd_first_single_to_multi END        AS sum_is_target_3rd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_3rd_first_single_to_multi END      AS sum_is_purchase_3rd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_3rd_first_single_to_multi END  AS sum_is_subsc_active_3rd_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_4th_first_multi END             AS sum_is_target_4th_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_4th_first_multi END           AS sum_is_purchase_4th_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_4th_first_multi END       AS sum_is_subsc_active_4th_first_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_target_4th_first_single_to_multi END        AS sum_is_target_4th_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_purchase_4th_first_single_to_multi END      AS sum_is_purchase_4th_first_single_to_multi,
+        CASE WHEN a.row_type IS NULL THEN 0 ELSE a.sum_is_subsc_active_4th_first_single_to_multi END  AS sum_is_subsc_active_4th_first_single_to_multi,
 
         COALESCE(
             TO_VARCHAR(YEAR(CASE WHEN a.row_type IS NULL THEN b.min_ym ELSE a.ordered_month_1st END)) || '年'
@@ -623,7 +629,7 @@ arrange_report_blocks AS (
 --     粒度: row_type_adjusted, ym_label
 ----------------------------------------------------------------------
 SELECT
-    '返品除外'                AS "対象区分",
+    '全対象'                  AS "対象区分",
     row_type_adjusted        AS "分類",
 
     ym_label                 AS "初回受注月",
@@ -640,32 +646,32 @@ SELECT
     order_count              AS "獲得件数",
 
     sum_is_subsc_1st         AS "定期件数",
-    sum_is_subsc_2_plus_1st  AS "2点定期件数",
+    sum_is_subsc_multi_1st   AS "複数点定期件数",
     sum_is_email_subsc       AS "メルマガOK",
     sum_is_subsc_active      AS "定期継続件数",
     avg_current_age          AS "平均年齢",
 
-    -- 初回1点→2点コースのF2〜F4実績
-    sum_is_target_2nd_first_1_to_2        AS "2回目_対象者_初回1点→2点",
-    sum_is_purchase_2nd_first_1_to_2      AS "2回目_購入者_初回1点→2点",
-    sum_is_subsc_active_2nd_first_1_to_2  AS "2回目_継続数_初回1点→2点",
-    sum_is_target_3rd_first_1_to_2        AS "3回目_対象者_初回1点→2点",
-    sum_is_purchase_3rd_first_1_to_2      AS "3回目_購入者_初回1点→2点",
-    sum_is_subsc_active_3rd_first_1_to_2  AS "3回目_継続数_初回1点→2点",
-    sum_is_target_4th_first_1_to_2        AS "4回目_対象者_初回1点→2点",
-    sum_is_purchase_4th_first_1_to_2      AS "4回目_購入者_初回1点→2点",
-    sum_is_subsc_active_4th_first_1_to_2  AS "4回目_継続数_初回1点→2点",
+    -- 初回単品定期コースのF2〜F4実績
+    sum_is_target_2nd_first_single_to_multi        AS "2回目_対象者_初回単品",
+    sum_is_purchase_2nd_first_single_to_multi      AS "2回目_購入者_初回単品",
+    sum_is_subsc_active_2nd_first_single_to_multi  AS "2回目_継続数_初回単品",
+    sum_is_target_3rd_first_single_to_multi        AS "3回目_対象者_初回単品",
+    sum_is_purchase_3rd_first_single_to_multi      AS "3回目_購入者_初回単品",
+    sum_is_subsc_active_3rd_first_single_to_multi  AS "3回目_継続数_初回単品",
+    sum_is_target_4th_first_single_to_multi        AS "4回目_対象者_初回単品",
+    sum_is_purchase_4th_first_single_to_multi      AS "4回目_購入者_初回単品",
+    sum_is_subsc_active_4th_first_single_to_multi  AS "4回目_継続数_初回単品",
 
-    -- 初回2点コースのF2〜F4実績
-    sum_is_target_2nd_first_2             AS "2回目_対象者_初回2点",
-    sum_is_purchase_2nd_first_2           AS "2回目_購入者_初回2点",
-    sum_is_subsc_active_2nd_first_2       AS "2回目_継続数_初回2点",
-    sum_is_target_3rd_first_2             AS "3回目_対象者_初回2点",
-    sum_is_purchase_3rd_first_2           AS "3回目_購入者_初回2点",
-    sum_is_subsc_active_3rd_first_2       AS "3回目_継続数_初回2点",
-    sum_is_target_4th_first_2             AS "4回目_対象者_初回2点",
-    sum_is_purchase_4th_first_2           AS "4回目_購入者_初回2点",
-    sum_is_subsc_active_4th_first_2       AS "4回目_継続数_初回2点",
+    -- 初回複数定期コースのF2〜F4実績
+    sum_is_target_2nd_first_multi             AS "2回目_対象者_初回複数",
+    sum_is_purchase_2nd_first_multi           AS "2回目_購入者_初回複数",
+    sum_is_subsc_active_2nd_first_multi       AS "2回目_継続数_初回複数",
+    sum_is_target_3rd_first_multi             AS "3回目_対象者_初回複数",
+    sum_is_purchase_3rd_first_multi           AS "3回目_購入者_初回複数",
+    sum_is_subsc_active_3rd_first_multi       AS "3回目_継続数_初回複数",
+    sum_is_target_4th_first_multi             AS "4回目_対象者_初回複数",
+    sum_is_purchase_4th_first_multi           AS "4回目_購入者_初回複数",
+    sum_is_subsc_active_4th_first_multi       AS "4回目_継続数_初回複数",
 
     avg_current_age_active  AS "平均年齢_継続層",
     avg_current_age_cancel  AS "平均年齢_解約層"

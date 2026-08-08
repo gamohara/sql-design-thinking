@@ -13,9 +13,9 @@ Example SQL that unifies order-based F1–F4 metrics with ad click/CV data acros
 
 ## データパイプライン内の位置 / Architecture Position
 
-[01_int_ltv_cohort_base_all](../01_int_ltv_cohort_base_all/)の出力を、前工程のGUIパラメータ層で「1回目の受注プロモが対象パターンに一致 かつ 1回目の受注日が指定期間内」に絞り込んだ`stg_ltv_cohort_target_period_all`を入力とする、本ケースの最終分析レイヤーです。
+[01_int_ltv_cohort_base](../01_int_ltv_cohort_base/)の出力を、前工程のGUIパラメータ層で「1回目の受注プロモが対象パターンに一致 かつ 1回目の受注日が指定期間内」に絞り込んだ`stg_ltv_cohort_target_period`を入力とする、本ケースの最終分析レイヤーです。
 
-Takes `stg_ltv_cohort_target_period_all` — a GUI parameter layer that filters the output of [01_int_ltv_cohort_base_all](../01_int_ltv_cohort_base_all/) to "1st-purchase promo matches the target pattern AND 1st-purchase date falls within a specific window" — as input. This is the final analytical layer of this case.
+Takes `stg_ltv_cohort_target_period` — a GUI parameter layer that filters the output of [01_int_ltv_cohort_base](../01_int_ltv_cohort_base/) to "1st-purchase promo matches the target pattern AND 1st-purchase date falls within a specific window" — as input. This is the final analytical layer of this case.
 
 リポジトリ全体のアーキテクチャは [トップレベルREADME](../../../README.md#overall-architecture--全体アーキテクチャ) を参照してください。
 
@@ -73,10 +73,47 @@ SQL側で`GROUPING SETS`を用いて「月/コード別」「取引先別」「�
 ## データ構造 / Input Data Structure
 
 ### Staging Tables
-- `stg_ltv_cohort_target_period_all` : [01](../01_int_ltv_cohort_base_all/)の出力を特定プロモ・特定期間に限定したもの（GUIパラメータ層）
+- `stg_ltv_cohort_target_period` : [01](../01_int_ltv_cohort_base/)の出力を特定プロモ・特定期間に限定したもの（GUIパラメータ層）
 
 ### Raw Tables
 - `raw_ad_click_cv_log` : 広告クリック・CV結果ログ
+
+---
+
+## 返品考慮版にする場合 / Building the Return-Excluded Variant
+
+本クエリは、上流の[01_int_ltv_cohort_base](../01_int_ltv_cohort_base/)が全対象版（返品を含めた実績監査モデル）であることを前提に、その出力をそのまま集計しています。返品考慮版のサマリーを作りたい場合、本クエリ自体の集計ロジック（GROUPING SETS・JOIN構成）は一切変更する必要がありません。変更が必要なのは入力元と最終出力の識別ラベルのみです。
+
+### a) 変更箇所と条件
+
+Step 1（`extract_base_metrics_from_f1_to_f4`）のFROM句を、以下のように差し替えます。
+
+```sql
+FROM
+    -- 変更前: 01を全対象版のまま通したGUIパラメータ層の出力
+    -- stg_ltv_cohort_target_period
+
+    -- 変更後: 01を返品考慮版（README「返品考慮版にする場合」参照）に差し替えた上で、
+    --         同じGUIパラメータ条件（対象プロモ・対象期間）を通した出力
+    stg_ltv_cohort_target_period_no_return
+```
+
+あわせて、最終出力（Step 11）の固定リテラルを変更します。
+
+```sql
+SELECT
+    '全対象'    AS "対象区分",   -- 変更前
+    -- '返品除外' AS "対象区分",   -- 変更後
+    ...
+```
+
+### b) 通常版（全対象版）との違い
+
+集計ロジック自体は同一のため、行や列の構造に違いは生じません。違いが出るのは、入力元となる横持ちデータの中身です。[01のREADME](../01_int_ltv_cohort_base/README.md#返品考慮版にする場合--building-the-return-excluded-variant)で説明している通り、返品考慮版ではF2〜F4の返品済み注文が除外され、後続の正常注文が繰り上がって集計対象になります。そのため「獲得件数」「複数点定期件数」「◯回目_継続数」等の実数値が、全対象版よりも小さく（または回によっては配分が変わって）出力される可能性があります。
+
+### c) 分析上の効果
+
+返品による水増しを含んだまま月次・取引先別・コード別の実績を集計してしまうと、施策やベンダーの評価が実態より良く（あるいは物流トラブルの多いベンダーが実態より悪く）見えるリスクがあります。返品考慮版に切り替えることで、返品ノイズを除いた「本当のリピート実績」に基づいて媒体・取引先ごとの費用対効果（CPA等）を評価できます。一方、全対象版は返品も含めた総受注ベースの実績を追いたい場合や、物流実態の監査に適しています。
 
 ---
 
@@ -91,4 +128,4 @@ SQL側で`GROUPING SETS`を用いて「月/コード別」「取引先別」「�
 `agg_clicks_cvs_by_grouping_sets`のGROUPING SETSでは、月単独の集計`(ordered_month)`と全体合計`()`のタプルには、あえてオファー等の詳細ディメンションを含めていません。ここに詳細ディメンションを含めてしまうと「月小計」「合計」としての集計粒度が崩れるため、変更しないでください。
 
 ### 対象母集団の変更方法
-本クエリの対象母集団は、前工程のGUIパラメータ層（`stg_ltv_cohort_target_period_all`）により「特定プロモ かつ 特定期間の初回受注」に限定されています。対象条件（期間や媒体条件）を変更したい場合は、SQL側ではなく大元のGUIパラメータ条件を変更してください。母集団が変わると本クエリの全ての集計結果に影響します。
+本クエリの対象母集団は、前工程のGUIパラメータ層（`stg_ltv_cohort_target_period`）により「特定プロモ かつ 特定期間の初回受注」に限定されています。対象条件（期間や媒体条件）を変更したい場合は、SQL側ではなく大元のGUIパラメータ条件を変更してください。母集団が変わると本クエリの全ての集計結果に影響します。

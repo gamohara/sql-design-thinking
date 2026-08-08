@@ -2,15 +2,17 @@
 ==============================================================================================
 【クエリ概要 / Query Overview】
 ----------------------------------------------------------------------------------------------
- 対象化粧品（定期購入美容液）の顧客ごとの「初回(F1)」「2回目(F2)」「3回目(F3)」「4回目(F4)」の
+ 対象品（定期購入美容液）の顧客ごとの「初回(F1)」「2回目(F2)」「3回目(F3)」「4回目(F4)」の
  購入履歴を1行（横持ち）に集約し、LTV分析や定期継続率の分析を行うためのデータマートを作成します。
  返品も含めて「実際に何が起きたか」をそのまま記録する、実績監査モデル（全対象版）です。
-  Horizontal LTV/Retention Base Mart (All-Targets Variant) — Intermediate Layer
+ F2〜F4の返品を除外して純粋なリピート率を見たい場合は、本READMEの
+ 「返品考慮版にする場合」を参照し、Step 8以降を差し替えてください。
+  Horizontal LTV/Retention Base Mart — Intermediate Layer
 
 【業務ロジック / Business Logic】
 ----------------------------------------------------------------------------------------------
   1. F1（初回購入）の起点特定
-     「特定の対象コード（大手広告代理店由来や他アフィリエイト由来のネット媒体）で初めて購入した
+     「特定の対象コード（代理店由来や他アフィリエイト由来のネット媒体）で初めて購入した
      注文」をF1の起点とし、以降の注文をF2, F3...とカウントします。起点は前工程のGUIパラメータ
      設定で作られる「分析起点対象フラグ」（is_cohort_anchor_target）で制御されます。
   2. 同日複数注文の整理
@@ -21,8 +23,9 @@
      F1（初回購入）時点で返品（返金保証を使ったものを除く）が発生した注文は、LTVの起点から
      完全に除外します。一方、F2〜F4（リピート段階）については、返品された注文も除外せず
      そのまま横持ちで結合し、「返品フラグ」を別途出力することで、実際の物流実績を監査できる
-     ようにします。返品・キャンセルの扱いの詳細な設計思想は、ケース全体のREADME内
-     [「返品・キャンセルの取り扱いルール」](../RETURN_CANCELLATION_RULES.md)を参照してください。
+     ようにします。返品・キャンセルの扱いの詳細な設計思想と30日ルールは、ケース全体README内
+     [「返品・キャンセルの取り扱いと30日ルール」](../README.md#返品キャンセルの取り扱いと30日ルール--return-cancellation-handling--the-30-day-rule)
+     を参照してください。
   4. 評価対象期間（30日ルール）
      「まだ次回分を買う時期に来ていない顧客」を離脱者としてカウントしてしまうノイズを防ぐため、
      前回出荷から一定日数（本モデルでは30日）経過していない場合は評価対象外とします。
@@ -38,13 +41,14 @@
   4. assign_order_sequence
      購入回数の採番と代表属性の特定
   5. prepare_f1_aggregation
-     同日注文に対する代表フラグの伝播と、2点定期フラグの生成
+     同日注文に対する代表フラグの伝播と、複数点定期フラグの生成
   6. subsc_delivery_schedule_source
      定期契約の「次回出荷予定日」や「周期」を取得
   7. purchase_1st
      返品を除外した、クリーンな初回購入(F1)情報の集約
   8. agg_base_table_filtered_purchase_1st
      2回目以降の購入情報を注文単位で集計（返品は除外せずそのまま集約）
+     ※返品考慮版にする場合はこのCTEを差し替えます。詳細はREADME参照。
   9. user_table_with_purchase_from_1st_to_4th
      顧客マスタを主軸にF1〜F4のデータを横結合（横持ち変換）
   10. processed_01_user_from_f1_to_f4
@@ -69,7 +73,7 @@
 【出力データ / Output Dataset】
 ----------------------------------------------------------------------------------------------
  LTV/残存率分析用 F1〜F4横持ちマート（全対象版）
-  int_ltv_cohort_base_all
+  int_ltv_cohort_base
 ==============================================================================================
 */
 
@@ -78,7 +82,7 @@ prep_target_start_date AS (
 ------------------------------------------------------------
 -- 1. [起点特定] 顧客ごとの「対象媒体での初回購入日」を特定
 --    前工程の受注データと商品情報を取得し、F1のカウント開始基準となる
---    「指定コード（大手代理店・アフィリエイト等の対象媒体）での一番古い受注日時」を算出します。
+--    「指定コード（代理店・アフィリエイト等の対象媒体）での一番古い受注日時」を算出します。
 --    粒度: order_id, line_no
 ------------------------------------------------------------
     SELECT
@@ -114,11 +118,11 @@ prep_target_start_date AS (
         media_name, media_type, media_category, media_subcategory, media_detail,
         vendor_name, online_media_name, promo_product_type_code, promo_product_type_name,
         media_cost, offer_name, lp_content, has_upsell, has_bot,
-        is_major_agency_referral, is_affiliate, is_no_path, is_no_email,
+        is_agency_referral, is_affiliate, is_no_path, is_no_email,
 
-        -- ▼ 定期引き上げ関連フラグ（対象化粧品特有のコース）
-        is_first_2_subsc,             -- 初回2点定期フラグ
-        is_first_1_to_second_2_subsc, -- 初回1点定期→2回目2点定期フラグ
+        -- ▼ 定期引き上げ関連フラグ（対象品特有のコース）
+        is_first_multi_subsc,             -- 初回複数定期フラグ（初回複数定期コース）
+        is_first_single_to_multi_subsc,   -- 初回単品→複数定期フラグ（初回単品定期コース）
 
         -- ▼ 返品情報関係
         is_cnsl, is_return, is_fake_return, is_return_no_refund, is_refund_eligibility,
@@ -229,11 +233,11 @@ prepare_f1_aggregation AS (
     SELECT
         *,
 
-        -- ★対象化粧品用：2点以上定期フラグ（注文単位の合算数量で判定）
+        -- ★対象品用：複数点以上定期フラグ（注文単位の合算数量で判定）
         CASE
             WHEN is_subsc = 1 AND order_id_sum_quantity >= 2 THEN 1
             ELSE 0
-        END AS is_subsc_2_plus,
+        END AS is_subsc_multi,
 
         -- ▼ 代表注文の属性を、同日の全レコードに伝播（コピー）させる
         MAX(CASE WHEN valid_daily_seq = 1 THEN order_id ELSE NULL END)
@@ -269,7 +273,7 @@ prepare_f1_aggregation AS (
 
 subsc_delivery_schedule_source AS (
 ------------------------------------------------------------
--- 6. [抽出テーブル] 対象化粧品の定期情報テーブル
+-- 6. [抽出テーブル] 対象品の定期情報テーブル
 --    各顧客の現在の定期契約状況や「次回出荷予定日」を取得します。
 --    粒度: user_id
 ------------------------------------------------------------
@@ -285,7 +289,7 @@ subsc_delivery_schedule_source AS (
         subsc_cancel_reason_id
 
     FROM
-        -- 対象化粧品の定期情報マスタ
+        -- 対象品の定期情報マスタ
         -- 対象商品を変更したい場合、大元のGUIパラメータ条件を変更してください
         dim_subscription_delivery_schedule
 ),
@@ -305,7 +309,7 @@ purchase_1st AS (
 --    ★重要: ここでF1の時点で返品された注文（is_return_no_refund = 1）を
 --            厳密に除外（＝正常に購入した顧客のみをLTVの起点とする）します。
 --            返金保証を使った返品は対象外のため除外しません（詳細は
---            [返品・キャンセルの取り扱いルール](../RETURN_CANCELLATION_RULES.md) を参照）。
+--            ケース全体README「返品・キャンセルの取り扱いと30日ルール」を参照）。
 --    粒度: user_id
 ------------------------------------------------------------
     SELECT
@@ -333,7 +337,7 @@ purchase_1st AS (
         MAX(a.is_subsc)                               AS max_is_subsc,
 
         -- 1回目で「定期商品を2つ以上」買ったかどうかの優良顧客フラグ
-        MAX(a.is_subsc_2_plus)                        AS max_is_subsc_2_plus,
+        MAX(a.is_subsc_multi)                         AS max_is_subsc_multi,
 
         MAX(COALESCE(b.is_subsc_active, 0))           AS max_is_subsc_active,
         MAX(COALESCE(b.subsc_delivery_cycle, 0))      AS max_subsc_delivery_cycle,
@@ -345,8 +349,8 @@ purchase_1st AS (
         MAX(a.daily_rep_offer_name)                   AS agg_offer_name,
         MAX(a.daily_rep_lp_type)                      AS agg_lp_type,
         MAX(a.daily_rep_media_detail)                 AS agg_media_detail,
-        MAX(a.is_first_2_subsc)                       AS max_is_first_2_subsc,
-        MAX(a.is_first_1_to_second_2_subsc)           AS max_is_first_1_to_second_2_subsc,
+        MAX(a.is_first_multi_subsc)                   AS max_is_first_multi_subsc,
+        MAX(a.is_first_single_to_multi_subsc)         AS max_is_first_single_to_multi_subsc,
 
         MAX(a.is_return_no_refund)                    AS max_is_return_no_refund,
 
@@ -390,6 +394,8 @@ agg_base_table_filtered_purchase_1st AS (
 --    ※F1対象者（purchase_1stに存在するユーザー）の注文のみに絞り込んでいます。
 --    ★全対象版の核心: ここでは返品を除外しません。返品されたF2〜F4もそのまま集約し、
 --      次のStepで「返品フラグ」として出力できるようにします。
+--    ★返品考慮版にする場合はこのCTEを丸ごと差し替えます。具体的な条件・コード例・
+--      挙動の違いはこのクエリのREADME「返品考慮版にする場合」を参照してください。
 --    粒度: user_id ✕ order_no
 ------------------------------------------------------------
     SELECT
@@ -451,13 +457,13 @@ user_table_with_purchase_from_1st_to_4th AS (
         f.agg_product_id                                            AS product_id_1st,
         f.agg_product_name                                          AS product_name_1st,
         f.max_is_subsc                                              AS is_subsc_1st,
-        f.max_is_subsc_2_plus                                       AS is_subsc_2_plus_1st,
+        f.max_is_subsc_multi                                        AS is_subsc_multi_1st,
         f.max_ordered_date                                          AS ordered_date_1st,
         f.max_shipment_date                                         AS shipment_date_1st,
         f.total_quantity                                            AS total_quantity_1st,
         f.total_discounted_amount_excl_point_excl_tax               AS total_discounted_amount_excl_point_excl_tax_1st,
-        f.max_is_first_2_subsc                                      AS is_first_2_subsc_1st,
-        f.max_is_first_1_to_second_2_subsc                          AS is_first_1_to_second_2_subsc_1st,
+        f.max_is_first_multi_subsc                                  AS is_first_multi_subsc_1st,
+        f.max_is_first_single_to_multi_subsc                        AS is_first_single_to_multi_subsc_1st,
         f.max_is_return_no_refund                                   AS is_return_no_refund_1st,
 
         -- ▼ purchase_2nd の情報 (F2)
@@ -648,8 +654,8 @@ SELECT
     product_id_1st                                    AS "1回目_商品ID",
     product_name_1st                                  AS "1回目_商品名",
     is_subsc_1st                                       AS "1回目_定期フラグ",
-    is_subsc_2_plus_1st                               AS "1回目_2本定期フラグ",
-    is_subsc_active                                    AS "定期継続フラグ_対象化粧品",
+    is_subsc_multi_1st                                 AS "1回目_複数点定期フラグ",
+    is_subsc_active                                    AS "定期継続フラグ_対象品",
     ordered_date_1st                                   AS "1回目_受注日",
     shipment_date_1st                                  AS "1回目_出荷日",
     total_quantity_1st                                 AS "1回目_注文数",
@@ -756,8 +762,8 @@ SELECT
     TRIM(SPLIT_PART(lp_type_1st, '/', 3))              AS "BOT",
     TRIM(SPLIT_PART(lp_type_1st, '/', 2))              AS "アップセル",
     media_detail_1st                                    AS "1回目_媒体名",
-    is_first_2_subsc_1st                               AS "1回目_初回2点定期フラグ",
-    is_first_1_to_second_2_subsc_1st                   AS "1回目_初回1点定期→2回目2点定期フラグ"
+    is_first_multi_subsc_1st                           AS "1回目_初回複数定期フラグ",
+    is_first_single_to_multi_subsc_1st                 AS "1回目_初回単品→複数定期フラグ"
 
 FROM
     processed_02_user_from_f1_to_f4   -- 11. の情報
