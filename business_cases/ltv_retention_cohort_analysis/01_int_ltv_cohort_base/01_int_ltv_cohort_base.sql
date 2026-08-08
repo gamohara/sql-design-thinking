@@ -122,7 +122,7 @@ prep_target_start_date AS (
 
         -- ▼ 定期引き上げ関連フラグ（対象品特有のコース）
         is_first_multi_subsc,             -- 初回複数定期フラグ（初回複数定期コース）
-        is_first_single_to_multi_subsc,   -- 初回単品→複数定期フラグ（初回単品定期コース）
+        is_first_single_to_multi_subsc,   -- 初回単品→複数定期フラグ（初回単品→複数定期コース）
 
         -- ▼ 返品情報関係
         is_cnsl, is_return, is_fake_return, is_return_no_refund, is_refund_eligibility,

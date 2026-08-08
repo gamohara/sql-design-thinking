@@ -98,7 +98,7 @@ extract_base_metrics_from_f1_to_f4 AS (
 ------------------------------------------------------------
 -- 1. [ベース抽出] 受注・LTV指標の取得とコース別フラグの展開
 --    前工程の横持ちテーブル（特定プロモ×特定期間に限定済みのGUIパラメータ層出力）から
---    データを取得し、コース（初回複数定期 / 初回単品定期）ごとにF2〜F4の対象・購入・継続状況を
+--    データを取得し、コース（初回複数定期 / 初回単品→複数定期）ごとにF2〜F4の対象・購入・継続状況を
 --    0/1の数値としてフラグ化します。
 --    粒度: user_id
 ------------------------------------------------------------
@@ -138,7 +138,7 @@ extract_base_metrics_from_f1_to_f4 AS (
         CASE WHEN is_first_multi_subsc_1st = 1 AND is_first_single_to_multi_subsc_1st <> 1 THEN raw_is_continuation_2nd
              ELSE 0 END AS is_subsc_active_2nd_first_multi,
 
-        -- 初回単品定期コースの場合のF2実績
+        -- 初回単品→複数定期コースの場合のF2実績
         CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_target_2nd
              ELSE 0 END AS is_target_2nd_first_single_to_multi,
         CASE WHEN is_first_multi_subsc_1st <> 1 AND is_first_single_to_multi_subsc_1st = 1 THEN raw_is_purchase_2nd
@@ -190,7 +190,7 @@ extract_base_metrics_from_f1_to_f4 AS (
 
     FROM
         -- GUIパラメータ層にて「1回目の受注プロモが対象パターンに一致（ネット媒体） かつ
-        -- 1回目の受注日が指定期間内（本モデルでは2024/03/01〜2024/03/15）」に限定済み。
+        -- 1回目の受注日が指定期間内（本モデルでは2024/01/01〜2025/12/31）」に限定済み。
         -- 対象条件を変更したい場合は、大元のGUIパラメータ条件を変更してください
         -- （詳細はケース全体READMEの「GUIパラメータ層」節を参照）
         -- ※返品考慮版にする場合は、[01_int_ltv_cohort_base](../01_int_ltv_cohort_base/)を
@@ -651,7 +651,7 @@ SELECT
     sum_is_subsc_active      AS "定期継続件数",
     avg_current_age          AS "平均年齢",
 
-    -- 初回単品定期コースのF2〜F4実績
+    -- 初回単品→複数定期コースのF2〜F4実績
     sum_is_target_2nd_first_single_to_multi        AS "2回目_対象者_初回単品",
     sum_is_purchase_2nd_first_single_to_multi      AS "2回目_購入者_初回単品",
     sum_is_subsc_active_2nd_first_single_to_multi  AS "2回目_継続数_初回単品",
